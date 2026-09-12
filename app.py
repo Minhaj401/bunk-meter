@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
@@ -20,7 +21,7 @@ import uuid
 from datetime import date, timedelta
 
 app = Flask(__name__)
-app.secret_key = "your_secret_key_here"
+app.secret_key = os.environ.get("SECRET_KEY", "your_secret_key_here")
 
 TIMETABLE_URL = "https://christ.etlab.app/student/timetable"
 LOGIN_URL     = "https://christ.etlab.app/user/login"
@@ -641,8 +642,15 @@ def _make_driver():
     opts.add_argument("--headless=new")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
+    opts.add_argument("--disable-gpu")
     opts.add_argument("--window-size=1280,1024")
-    return webdriver.Chrome(options=opts)
+    # In the Docker image (Railway), use the installed chromium + chromedriver.
+    # Locally these env vars are unset and Selenium Manager resolves them itself.
+    if os.environ.get("CHROME_BIN"):
+        opts.binary_location = os.environ["CHROME_BIN"]
+    service = (Service(os.environ["CHROMEDRIVER_PATH"])
+               if os.environ.get("CHROMEDRIVER_PATH") else Service())
+    return webdriver.Chrome(service=service, options=opts)
 
 def scrape_attendance_only(username, password):
     """Login and scrape only the attendance table. Returns attendance_data dict."""
@@ -1006,4 +1014,4 @@ def calculate_date(date_str):
                            cal=cal, month_arg=f"{y:04d}-{m:02d}")
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
