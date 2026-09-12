@@ -17,51 +17,6 @@ import urllib.request
 app = Flask(__name__)
 app.secret_key = "your_secret_key_here"
 
-# ---------- Timetable Data (fallback when scrape fails) ----------
-TIMETABLE = {
-    "Monday": [
-        {"course_code": "PBCST404", "course_name": "Computer Organization and Architecture", "type": "Theory", "faculty": "Vineetha K V"},
-        {"course_code": "PCCSL408", "course_name": "Database Management Systems lab", "type": "Lab", "faculty": None},
-        {"course_code": "PCCSL408", "course_name": "Database Management Systems lab", "type": "Lab", "faculty": None},
-        {"course_code": "PCCSL408", "course_name": "Database Management Systems lab", "type": "Lab", "faculty": None},
-        {"course_code": "PCCST402", "course_name": "Database Management Systems", "type": "Theory", "faculty": "Ms. Jincy Denny"},
-        {"course_code": "GAMAT401", "course_name": "Mathematics for Information Science-4", "type": "Theory", "faculty": "Ms. Neethu K"},
-        {"activity": "Sports", "faculty": "SPT24"}
-    ],
-    "Tuesday": [
-        {"course_code": "PBCST404", "course_name": "Computer Organization and Architecture", "type": "Theory", "faculty": "Vineetha K V"},
-        {"course_code": "PCCST403", "course_name": "Operating Systems", "type": "Theory", "faculty": "Bhagyasree P V"},
-        {"course_code": "GAMAT401", "course_name": "Mathematics for Information Science-4", "type": "Theory", "faculty": "Ms. Neethu K"},
-        {"course_code": "PBCST404", "course_name": "Computer Organization and Architecture", "type": "Theory", "faculty": "Vineetha K V"},
-        {"course_code": "PECST411", "course_name": "Software Engineering", "type": "Theory", "faculty": "Vaishak C Krishnan"}
-    ],
-    "Wednesday": [
-        {"course_code": "UCHUT347", "course_name": "Engineering Ethics and Sustainable Development", "type": "Theory", "faculty": "Athithya S"},
-        {"course_code": "PCCST403", "course_name": "Operating Systems", "type": "Theory", "faculty": "Bhagyasree P V"},
-        {"course_code": "PECST411", "course_name": "Software Engineering", "type": "Theory", "faculty": "Vaishak C Krishnan"},
-        {"course_code": "PCCST402", "course_name": "Database Management Systems", "type": "Theory", "faculty": "Ms. Jincy Denny"},
-        {"course_code": "GAMAT401", "course_name": "Mathematics for Information Science-4", "type": "Theory", "faculty": "Ms. Neethu K"},
-        {"course_code": "PCCST402", "course_name": "Database Management Systems", "type": "Theory", "faculty": "Ms. Jincy Denny"},
-        {"activity": "Library", "faculty": "LIB24"}
-    ],
-    "Thursday": [
-        {"course_code": "PCCST403", "course_name": "Operating Systems", "type": "Theory", "faculty": "Bhagyasree P V"},
-        {"course_code": "PCCSL407", "course_name": "Operating Systems lab", "type": "Lab", "faculty": None},
-        {"course_code": "PCCSL407", "course_name": "Operating Systems lab", "type": "Lab", "faculty": None},
-        {"course_code": "PCCSL407", "course_name": "Operating Systems lab", "type": "Lab", "faculty": None},
-        {"course_code": "PCCST403", "course_name": "Operating Systems ", "type": "Theory", "faculty": "Bhagyasree P V"}
-    ],
-    "Friday": [
-        {"course_code": "PCCST403", "course_name": "Operating Systems", "type": "Theory", "faculty": "Bhagyasree P V"},
-        {"course_code": "GAMAT401", "course_name": "Mathematics for Information Science-4", "type": "Theory", "faculty": "Ms. Neethu K"},
-        {"course_code": "PCCST402", "course_name": "Database Management Systems", "type": "Theory", "faculty": "Ms. Jincy Denny"},
-        {"course_code": "UCHUT347", "course_name": "Engineering Ethics and Sustainable Development", "type": "Theory", "faculty": "Athithya S"},
-        {"course_code": "PCCST402", "course_name": "Database Management Systems", "type": "Theory", "faculty": "Ms. Jincy Denny"},
-        {"course_code": "PECST411", "course_name": "Software Engineering", "type": "Theory", "faculty": "Vaishak C Krishnan"},
-        {"course_code": "PBCST404", "course_name": "Computer Organization and Architecture", "type": "Theory", "faculty": "Vineetha K V"}
-    ]
-}
-
 TIMETABLE_URL = "https://christ.etlab.app/student/timetable"
 
 # ---------- Timetable Parser (per-student, scraped) ----------
@@ -191,7 +146,9 @@ def groq_map_misses(headers, candidates):
 
 def resolve_map(attendance_data, timetable, subject_map):
     """Merge stored map with fresh auto-match for any new headers."""
-    mapping, unmatched = build_subject_map(attendance_data, timetable or TIMETABLE)
+    if not timetable:
+        raise ValueError("No timetable loaded — log in again.")
+    mapping, unmatched = build_subject_map(attendance_data, timetable)
     for header, m in (subject_map or {}).items():
         if isinstance(m, dict) and m.get("key"):
             mapping[header] = m
@@ -249,7 +206,9 @@ def calculate_leave_impact(attendance_data, day, timetable=None, subject_map=Non
     Calculate the impact of taking leave on a specific day
     Returns impact details including new percentages and allowed status
     """
-    tt = timetable or TIMETABLE
+    tt = timetable
+    if not tt:
+        raise ValueError("No timetable loaded — log in again.")
     if day not in tt:
         return None
 
@@ -343,7 +302,9 @@ def simulate_bunking(attendance_data, days_to_bunk, timetable=None, subject_map=
     Simulate what attendance would be after bunking specified days
     Returns updated attendance data
     """
-    tt = timetable or TIMETABLE
+    tt = timetable
+    if not tt:
+        raise ValueError("No timetable loaded — log in again.")
     mapping, _ = resolve_map(attendance_data, tt, subject_map)
     simulated_data = {}
     
@@ -413,7 +374,9 @@ def analyze_safe_days(attendance_data, simulate_days=None, timetable=None, subje
         attendance_data: Current attendance data
         simulate_days: Optional list of days to simulate bunking before checking safety
     """
-    tt = timetable or TIMETABLE
+    tt = timetable
+    if not tt:
+        raise ValueError("No timetable loaded — log in again.")
     # If simulating days, update attendance first
     if simulate_days:
         attendance_data = simulate_bunking(attendance_data, simulate_days, tt, subject_map)
@@ -485,7 +448,7 @@ def analyze_safe_days(attendance_data, simulate_days=None, timetable=None, subje
 
 # ---------- Scraper with Selenium ----------
 def scrape_attendance(username, password):
-    """Returns (attendance_data, timetable, timetable_source)."""
+    """Returns (attendance_data, timetable). Raises ValueError on any failure."""
     chrome_options = Options()
     chrome_options.add_argument("--headless=new")
     driver = webdriver.Chrome(options=chrome_options)
@@ -508,18 +471,20 @@ def scrape_attendance(username, password):
 
         data = parse_subjectwise_attendance(driver.page_source)
 
-        # Fetch per-student timetable with same session
+        # Fetch per-student timetable with same session (no hardcoded fallback)
         try:
             driver.get(TIMETABLE_URL)
             WebDriverWait(driver, 30).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "#timetable table.items"))
             )
             timetable = parse_timetable(driver.page_source)
-            source = "scraped"
         except Exception:
-            timetable, source = TIMETABLE, "fallback"
+            raise ValueError("Logged in, but timetable page failed to load. Try again.")
 
-        return data, timetable, source
+        if not timetable:
+            raise ValueError("Timetable came back empty. Try again.")
+
+        return data, timetable
 
     finally:
         driver.quit()
@@ -532,7 +497,7 @@ def login():
         password = request.form["password"]
 
         try:
-            data, timetable, source = scrape_attendance(username, password)
+            data, timetable = scrape_attendance(username, password)
             mapping, unmatched = build_subject_map(data, timetable)
             # Layer 3: Groq maps leftovers (misses only), cached in session
             for header, key in groq_map_misses(unmatched, timetable_subjects(timetable)).items():
@@ -543,11 +508,12 @@ def login():
             session["timetable"] = timetable
             session["subject_map"] = mapping
             session["unmatched"] = unmatched
-            session["timetable_source"] = source
             session["safe_days"] = safe_days
             return redirect(url_for("dashboard"))
         except TimeoutException:
             return render_template("login.html", error="Login failed — wrong ID/password or attendance page timed out. Try again.")
+        except ValueError as e:
+            return render_template("login.html", error=str(e))
         except Exception:
             error_details = traceback.format_exc()
             return f"<h1 style='color:red'>❌ Error:</h1><pre>{error_details}</pre>"
@@ -561,15 +527,14 @@ def dashboard():
     return render_template("dashboard.html", data=data, safe_days=safe_days,
                            subject_map=session.get("subject_map", {}),
                            unmatched=session.get("unmatched", []),
-                           timetable_subjects=timetable_subjects(session.get("timetable")),
-                           timetable_source=session.get("timetable_source", "fallback"))
+                           timetable_subjects=timetable_subjects(session.get("timetable")))
 
 @app.route("/confirm_mapping", methods=["POST"])
 def confirm_mapping():
     """Manual overrides for unmatched subjects, then recompute."""
     data = session.get("data", {})
     timetable = session.get("timetable")
-    if not data:
+    if not data or not timetable:
         return redirect(url_for("login"))
     mapping = session.get("subject_map", {})
     unmatched = []
@@ -617,8 +582,7 @@ def simulate_bunking_route():
                          simulated_days=days_to_simulate,
                          subject_map=subject_map,
                          unmatched=session.get("unmatched", []),
-                         timetable_subjects=timetable_subjects(timetable),
-                         timetable_source=session.get("timetable_source", "fallback"))
+                         timetable_subjects=timetable_subjects(timetable))
 
 @app.route("/calculate_leave/<day>")
 def calculate_leave(day):
@@ -633,8 +597,7 @@ def calculate_leave(day):
     return render_template("dashboard.html", data=data, safe_days=safe_days, leave_impact=impact, selected_day=day,
                            subject_map=session.get("subject_map", {}),
                            unmatched=session.get("unmatched", []),
-                           timetable_subjects=timetable_subjects(session.get("timetable")),
-                           timetable_source=session.get("timetable_source", "fallback"))
+                           timetable_subjects=timetable_subjects(session.get("timetable")))
 
 if __name__ == "__main__":
     app.run(debug=True)

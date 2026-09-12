@@ -144,9 +144,7 @@
   <!-- Subject mapping -->
   {% if subject_map or unmatched %}
   <div class="card">
-    <div class="card-header"><i class="fa-solid fa-link"></i> Subject mapping
-      {% if timetable_source == 'fallback' %}<span class="sync-note">(default timetable — live scrape failed)</span>{% endif %}
-    </div>
+    <div class="card-header"><i class="fa-solid fa-link"></i> Subject mapping</div>
     {% if unmatched %}
     <div class="flash danger"><i class="fa-solid fa-triangle-exclamation"></i> Unmapped — excluded from verdicts: {{ unmatched | join(', ') }}</div>
     <form method="POST" action="/confirm_mapping">
