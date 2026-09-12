@@ -1,16 +1,21 @@
 from flask import Flask, render_template, request, redirect, url_for, session
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
 from bs4 import BeautifulSoup
+import os
+
+IS_VERCEL = os.environ.get("VERCEL") == "1"
+
+if not IS_VERCEL:
+    from selenium import webdriver
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.common.exceptions import TimeoutException
 import calendar
 import difflib
 import json
 import math
-import os
+
 import pathlib
 import re
 import sqlite3
@@ -28,7 +33,12 @@ ATTENDANCE_URL = "https://christ.etlab.app/ktuacademics/student/viewattendancesu
 
 BASE_DIR  = pathlib.Path(__file__).parent
 DB_PATH   = BASE_DIR / "bunkmaster.db"
-STORE_DIR = BASE_DIR / "sessions"
+
+
+if IS_VERCEL:
+    STORE_DIR = pathlib.Path("/tmp/sessions")
+else:
+    STORE_DIR = BASE_DIR / "sessions"
 STORE_DIR.mkdir(exist_ok=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -816,6 +826,10 @@ def login():
         password = request.form["password"]
 
         try:
+            if IS_VERCEL:
+                # Vercel: no Chrome/Selenium available, go straight to DB cache
+                raise RuntimeError("Vercel deployment — using cached data")
+
             # Check if timetable is cached in SQLite
             cached_tt = db_load_timetable(username)
 
@@ -861,10 +875,12 @@ def login():
                 session.modified = True
                 return redirect(url_for("dashboard"))
                 
-            if isinstance(e, TimeoutException):
+            if not IS_VERCEL and isinstance(e, TimeoutException):
                 return render_template("login.html", error="ETLAB did not respond. It may be down — try again in a minute.")
             elif isinstance(e, ValueError):
                 return render_template("login.html", error=str(e))
+            elif IS_VERCEL:
+                return render_template("login.html", error="Offline mode: no cached data found for this account. Log in via the local app first to populate the cache.")
             else:
                 return f"<h1 style='color:red'>❌ Error:</h1><pre>{traceback.format_exc()}</pre>"
 
