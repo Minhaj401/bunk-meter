@@ -1,14 +1,4 @@
 {
-  "builds": [
-    {
-      "src": "app.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "app.py"
-    }
-  ]
+  "outputDirectory": "public",
+  "buildCommand": "python3 export_static.py"
 }
