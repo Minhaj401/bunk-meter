@@ -1,6 +1,12 @@
 <img width="1280" height="640" alt="git (1)" src="https://github.com/user-attachments/assets/8920b256-2ba8-4988-b824-5351134eb4bd" />
 
-# Bunk Meter 🎯
+# Bunk Meter 
+
+Why attend when you bunk..
+
+## Demo Video
+
+https://github.com/user-attachments/assets/87ad2284-b944-410e-bd07-9adb65b4c65c
 
 ## Basic Details
 ### Team Name: Bunk Masters
@@ -50,10 +56,7 @@ playwright install chromium
 # Run
 ```bash
 python app.py
-```
-
-### Project Documentation
-For Software:
+``
 
 # Screenshots
 
