@@ -4,6 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 from bs4 import BeautifulSoup
 import math
 import re
@@ -379,6 +380,8 @@ def login():
             session["data"] = data
             session["safe_days"] = safe_days
             return redirect(url_for("dashboard"))
+        except TimeoutException:
+            return render_template("login.html", error="Login failed — wrong ID/password or attendance page timed out. Try again.")
         except Exception:
             error_details = traceback.format_exc()
             return f"<h1 style='color:red'>❌ Error:</h1><pre>{error_details}</pre>"

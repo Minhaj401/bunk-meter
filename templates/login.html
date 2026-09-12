@@ -4,42 +4,75 @@
   <title>BunkMaster | Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/tokens.css">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+  <div class="mesh" aria-hidden="true"></div>
+  <div class="skeleton-bg" aria-hidden="true"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+
   <div class="login-container">
-    <div style="text-align: center; margin-bottom: 30px;">
-      <h1 style="font-size: 32px; font-weight: 700; margin-bottom: 5px; color: var(--primary-light);">BUNK<span style="color: var(--secondary);">MASTER</span></h1>
-      <p style="opacity: 0.7; font-size: 14px;">Track your attendance like a boss</p>
+    <div style="text-align:center;margin-bottom:30px">
+      <h1 class="logo">BUNK<span>MASTER</span><span class="bar-glyph" aria-hidden="true"><i></i><i></i><i></i></span></h1>
+      <p class="tagline">Know exactly when you can skip class</p>
     </div>
-    
-    <form method="POST" style="margin-top: 20px;">
-      <div style="margin-bottom: 20px;">
-        <label style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500;">UNIVERSITY ID</label>
-        <div style="position: relative; display: flex; justify-content: center;">
-          <input type="text" name="username" placeholder="Enter your ID" required>
-        </div>
+
+    <form method="POST" id="login-form" style="margin-top:20px">
+      {% if error %}
+      <div class="flash danger" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ error }}<br><a href="/" style="color:inherit;font-weight:600">Retry</a></div>
+      {% endif %}
+      <div class="field">
+        <label for="username">UNIVERSITY ID</label>
+        <input id="username" type="text" name="username" placeholder="Enter your ID" required autocomplete="username">
       </div>
-      
-      <div style="margin-bottom: 25px;">
-        <label style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500;">PASSWORD</label>
-        <div style="position: relative; display: flex; justify-content: center;">
-          <input type="password" name="password" placeholder="Enter your password" required>
-        </div>
+      <div class="field">
+        <label for="password">PASSWORD</label>
+        <input id="password" type="password" name="password" placeholder="Enter your password" required autocomplete="current-password">
       </div>
-      
-      <div style="display: flex; justify-content: center;">
-        <button type="submit">
-          LOG IN
-        </button>
+      <div style="display:flex;justify-content:center">
+        <button type="submit" id="login-btn">LOG IN</button>
       </div>
     </form>
-    
-    <div style="text-align: center; margin-top: 25px; font-size: 13px; opacity: 0.6;">
-      <p>Know exactly when you can skip class</p>
+
+    <div id="loading" class="loader" style="display:none" role="status" aria-live="polite">
+      <div class="progress"><i id="progress-fill"></i></div>
+      <ul class="stages" id="stages">
+        <li data-joke="Bribing the attendance server…">Logging into ETLAB</li>
+        <li data-joke="Teaching the browser to read…">Fetching timetable</li>
+        <li data-joke="Counting your bunks…">Crunching attendance</li>
+        <li data-joke="Polishing your safe days…">Calculating safe days</li>
+      </ul>
+      <p id="funny-msg" style="font-size:13px;opacity:.7;margin-top:8px">Warming up Chrome…</p>
+    </div>
+
+    <div style="text-align:center;margin-top:25px;font-size:13px;opacity:.6">
+      <p>Answer first: can you bunk today? <span class="sync-note">~30–45s first sync</span></p>
     </div>
   </div>
-  
 
+  <script>
+    (function(){
+      var form=document.getElementById('login-form');
+      form.addEventListener('submit',function(){
+        var box=document.getElementById('loading');
+        box.style.display='block';
+        document.getElementById('login-btn').disabled=true;
+        document.body.classList.add('loading');
+        var items=Array.prototype.slice.call(document.querySelectorAll('#stages li'));
+        var fill=document.getElementById('progress-fill');
+        var msg=document.getElementById('funny-msg');
+        var i=0;
+        function step(){
+          items.forEach(function(li,idx){li.classList.toggle('done',idx<i);li.classList.toggle('on',idx===i)});
+          if(i<items.length){
+            fill.style.width=(8+(i+1)*(92/items.length))+'%';
+            msg.textContent=items[i].dataset.joke||'Working…';
+            i++;setTimeout(step,6000);
+          } else {fill.style.width='98%';msg.textContent='Holding your seat, almost there…';}
+        }
+        step();
+      });
+    })();
+  </script>
 </body>
 </html>

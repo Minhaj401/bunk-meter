@@ -1,0 +1,59 @@
+:root {
+  /* Surfaces */
+  --bg-base: #0f1115;
+  --bg-elevated: #171a21;
+  --surface-card: #1e2129;
+  --surface-card-hi: #262a34;
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-strong: rgba(255,255,255,0.12);
+
+  /* Brand */
+  --brand-primary: #7c6cf6;
+  --brand-primary-soft: rgba(124,108,246,0.15);
+  --brand-gradient: linear-gradient(135deg, #7c6cf6 0%, #a78bfa 50%, #f472b6 100%);
+
+  /* Status */
+  --status-safe: #34d399;
+  --status-safe-glow: rgba(52,211,153,0.25);
+  --status-caution: #fbbf24;
+  --status-caution-glow: rgba(251,191,36,0.25);
+  --status-danger: #fb7185;
+  --status-danger-glow: rgba(251,113,133,0.25);
+
+  /* Legacy aliases (old templates) */
+  --primary: var(--brand-primary);
+  --primary-light: #a78bfa;
+  --secondary: var(--status-safe);
+  --success: var(--status-safe);
+  --danger: var(--status-danger);
+  --dark: var(--bg-elevated);
+  --darker: var(--bg-base);
+  --light: #dfe6e9;
+  --card-bg: var(--surface-card);
+  --text: #f4f5f7;
+
+  /* Text */
+  --text-primary: #f4f5f7;
+  --text-secondary: #9ca0ab;
+  --text-tertiary: #5f6470;
+
+  /* Type */
+  --text-display: 700 40px/1 'Poppins', sans-serif;
+  --text-h1: 600 24px/1.2 'Poppins', sans-serif;
+  --text-h2: 600 18px/1.3 'Poppins', sans-serif;
+  --text-body: 400 15px/1.5 'Poppins', sans-serif;
+  --text-small: 400 13px/1.5 'Poppins', sans-serif;
+  --text-micro: 600 11px/1.4 'Poppins', sans-serif;
+
+  /* Spacing */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px;
+  --space-4: 16px; --space-5: 24px; --space-6: 32px; --space-7: 48px;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
