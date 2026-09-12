@@ -27,6 +27,6 @@ COPY static/ static/
 ENV PORT=8000
 EXPOSE 8000
 
-# Single worker: each login spawns a Chrome instance, keep memory predictable.
-# Threads handle concurrent dashboard/simulate requests; 120s covers the Selenium scrape.
-CMD ["sh", "-c", "gunicorn --workers 1 --threads 4 --timeout 120 --bind 0.0.0.0:${PORT} app:app"]
+# Single worker: each login spawns a Chrome instance. 2 threads keeps worst-case
+# Chrome memory within Render/Railway free-tier 512MB.
+CMD ["sh", "-c", "gunicorn --workers 1 --threads 2 --timeout 120 --bind 0.0.0.0:${PORT} app:app"]
