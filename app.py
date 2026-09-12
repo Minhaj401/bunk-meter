@@ -6,14 +6,18 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from bs4 import BeautifulSoup
+import difflib
+import json
 import math
+import os
 import re
 import traceback
+import urllib.request
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key_here"
 
-# ---------- Timetable Data ----------
+# ---------- Timetable Data (fallback when scrape fails) ----------
 TIMETABLE = {
     "Monday": [
         {"course_code": "PBCST404", "course_name": "Computer Organization and Architecture", "type": "Theory", "faculty": "Vineetha K V"},
@@ -57,6 +61,143 @@ TIMETABLE = {
         {"course_code": "PBCST404", "course_name": "Computer Organization and Architecture", "type": "Theory", "faculty": "Vineetha K V"}
     ]
 }
+
+TIMETABLE_URL = "https://christ.etlab.app/student/timetable"
+
+# ---------- Timetable Parser (per-student, scraped) ----------
+def parse_timetable(html):
+    """Parse /student/timetable page into {Day: [entries]}.
+    Entry: {course_code?, course_name, type?, faculty?} or {activity}.
+    Free periods and TA activities (placement/library/gate) skipped."""
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.select_one("#timetable table.items")
+    if not table:
+        raise ValueError("Timetable table not found in page")
+
+    tt = {}
+    for row in table.select("tbody tr"):
+        cells = row.find_all("td")
+        if not cells:
+            continue
+        m_day = re.match(r"[A-Za-z]+", cells[0].get_text(strip=True))
+        if not m_day:
+            continue
+        day = m_day.group(0).capitalize()
+
+        entries = []
+        for td in cells[1:]:
+            lines = [s.strip() for s in td.stripped_strings if s.strip()]
+            if not lines:
+                continue
+            first = lines[0]
+            if first.lower() == "free period":
+                continue
+            if first == "TA":
+                entries.append({"activity": " ".join(lines[1:]) or "Activity"})
+                continue
+            typ = next((l.strip("[] ") for l in lines if l.startswith("[")), None)
+            faculty = None
+            if len(lines) > 1 and not lines[-1].startswith("[") and lines[-1] != first:
+                faculty = lines[-1]
+            m_code = re.match(r"^([\w&]+)\s*-\s*(.+)$", first)
+            if m_code:
+                entries.append({"course_code": m_code.group(1), "course_name": m_code.group(2).strip(),
+                                "type": typ, "faculty": faculty})
+            else:
+                entries.append({"course_name": first, "type": typ, "faculty": faculty})
+        tt[day] = entries
+    return tt
+
+# ---------- Subject Matching (regex -> fuzzy -> Groq -> manual) ----------
+def entry_key(e):
+    return e.get("course_code") or e.get("course_name")
+
+def normalize(s):
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+def extract_code(s):
+    m = re.search(r"\b([A-Z]{2,}\d+[A-Z0-9]*)\b", (s or "").upper())
+    return m.group(1) if m else None
+
+def timetable_subjects(timetable):
+    seen, out = set(), []
+    for classes in (timetable or {}).values():
+        for cls in classes:
+            if "course_code" not in cls and "course_name" not in cls:
+                continue
+            key = entry_key(cls)
+            if key and key not in seen:
+                seen.add(key)
+                out.append(cls)
+    return out
+
+def match_subject(header, candidates):
+    """Layers 1-2: exact code, then fuzzy name. Returns (key, method) or (None, None)."""
+    code = extract_code(header)
+    if code:
+        for c in candidates:
+            if c.get("course_code") == code:
+                return entry_key(c), "exact"
+    hn = normalize(header)
+    best, best_score = None, 0.0
+    for c in candidates:
+        for text in (c.get("course_code") or "", c.get("course_name") or ""):
+            s = difflib.SequenceMatcher(None, hn, normalize(text)).ratio()
+            if s > best_score:
+                best, best_score = c, s
+    if best is not None and best_score >= 0.8:
+        return entry_key(best), "fuzzy"
+    return None, None
+
+def build_subject_map(attendance_data, timetable):
+    """Auto-match all attendance headers. Returns (mapping, unmatched)."""
+    candidates = timetable_subjects(timetable)
+    mapping, unmatched = {}, []
+    for header in attendance_data:
+        if header in ("TOTAL", "PERCENTAGE"):
+            continue
+        key, method = match_subject(header, candidates)
+        if key:
+            mapping[header] = {"key": key, "method": method}
+        else:
+            unmatched.append(header)
+    return mapping, unmatched
+
+def groq_map_misses(headers, candidates):
+    """Layer 3: ask Groq to map leftover headers. Returns {header: key}."""
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key or not headers:
+        return {}
+    options = [{"key": entry_key(c), "name": c.get("course_name", "")} for c in candidates]
+    prompt = ("Map each attendance subject to the timetable subject key. "
+              "Reply ONLY with a JSON object like {\"attendance_subject\": \"key\"}.\nAttendance: "
+              + json.dumps(headers) + "\nTimetable: " + json.dumps(options))
+    body = json.dumps({"model": "llama-3.1-8b-instant",
+                       "messages": [{"role": "user", "content": prompt}],
+                       "temperature": 0}).encode()
+    try:
+        req = urllib.request.Request("https://api.groq.com/openai/v1/chat/completions",
+                                     data=body,
+                                     headers={"Authorization": "Bearer " + api_key,
+                                              "Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            content = json.loads(r.read())["choices"][0]["message"]["content"]
+        content = re.sub(r"^```(?:json)?|```$", "", content.strip(), flags=re.MULTILINE).strip()
+        raw = json.loads(content)
+        valid = {entry_key(c) for c in candidates}
+        return {h: k for h, k in raw.items() if h in headers and k in valid}
+    except Exception:
+        return {}
+
+def resolve_map(attendance_data, timetable, subject_map):
+    """Merge stored map with fresh auto-match for any new headers."""
+    mapping, unmatched = build_subject_map(attendance_data, timetable or TIMETABLE)
+    for header, m in (subject_map or {}).items():
+        if isinstance(m, dict) and m.get("key"):
+            mapping[header] = m
+            if header in unmatched:
+                unmatched.remove(header)
+    return mapping, unmatched
 
 # ---------- Attendance Parser ----------
 def parse_subjectwise_attendance(html):
@@ -103,14 +244,17 @@ def parse_subjectwise_attendance(html):
     return data
 
 # ---------- Leave Impact Calculator ----------
-def calculate_leave_impact(attendance_data, day):
+def calculate_leave_impact(attendance_data, day, timetable=None, subject_map=None):
     """
     Calculate the impact of taking leave on a specific day
     Returns impact details including new percentages and allowed status
     """
-    if day not in TIMETABLE:
+    tt = timetable or TIMETABLE
+    if day not in tt:
         return None
-    
+
+    mapping, _ = resolve_map(attendance_data, tt, subject_map)
+
     impact = {
         "day": day,
         "is_allowed": True,
@@ -119,16 +263,14 @@ def calculate_leave_impact(attendance_data, day):
         "overall_impact": {}
     }
     
-    # Get classes for the day
-    day_classes = TIMETABLE[day]
+    # Get classes for the day (grouped by subject key: code or name)
+    day_classes = tt[day]
     day_subjects = {}
-    
+
     for cls in day_classes:
-        if "course_code" in cls:
-            course_code = cls["course_code"]
-            if course_code not in day_subjects:
-                day_subjects[course_code] = 0
-            day_subjects[course_code] += 1
+        if "course_code" in cls or "course_name" in cls:
+            key = entry_key(cls)
+            day_subjects[key] = day_subjects.get(key, 0) + 1
     
     # Calculate impact for each subject
     total_current_attended = 0
@@ -136,15 +278,15 @@ def calculate_leave_impact(attendance_data, day):
     total_new_attended = 0
     total_new_classes = 0
     
-    for course_code, classes_count in day_subjects.items():
-        # Find matching subject in attendance data
+    for key, classes_count in day_subjects.items():
+        # Find matching subject via resolved map (no substring hack)
         for att_subject, att_info in attendance_data.items():
             if att_subject in ["TOTAL", "PERCENTAGE"]:
                 continue
             
             if isinstance(att_info, dict) and "raw" in att_info:
-                # Check if course code matches
-                if course_code in att_subject:
+                # Check if mapped key matches
+                if mapping.get(att_subject, {}).get("key") == key:
                     # Parse current attendance
                     match = re.match(r"(\d+)/(\d+).*?\((\d+)%\)", att_info["raw"])
                     if match:
@@ -196,11 +338,13 @@ def calculate_leave_impact(attendance_data, day):
     return impact
 
 # ---------- Simulate Bunking Days ----------
-def simulate_bunking(attendance_data, days_to_bunk):
+def simulate_bunking(attendance_data, days_to_bunk, timetable=None, subject_map=None):
     """
     Simulate what attendance would be after bunking specified days
     Returns updated attendance data
     """
+    tt = timetable or TIMETABLE
+    mapping, _ = resolve_map(attendance_data, tt, subject_map)
     simulated_data = {}
     
     # Deep copy the attendance data
@@ -217,24 +361,22 @@ def simulate_bunking(attendance_data, days_to_bunk):
     # Calculate total classes missed per subject
     classes_missed = {}
     for day in days_to_bunk:
-        if day not in TIMETABLE:
+        if day not in tt:
             continue
         
-        for cls in TIMETABLE[day]:
-            if "course_code" in cls:
-                course_code = cls["course_code"]
-                if course_code not in classes_missed:
-                    classes_missed[course_code] = 0
-                classes_missed[course_code] += 1
+        for cls in tt[day]:
+            if "course_code" in cls or "course_name" in cls:
+                key = entry_key(cls)
+                classes_missed[key] = classes_missed.get(key, 0) + 1
     
     # Update attendance data
-    for course_code, missed_count in classes_missed.items():
+    for key, missed_count in classes_missed.items():
         for subject, info in simulated_data.items():
             if subject in ["TOTAL", "PERCENTAGE"]:
                 continue
             
             if isinstance(info, dict) and "raw" in info:
-                if course_code in subject:
+                if mapping.get(subject, {}).get("key") == key:
                     # Parse current attendance
                     match = re.match(r"(\d+)/(\d+).*?\((\d+)%\)", info["raw"])
                     if match:
@@ -261,7 +403,7 @@ def simulate_bunking(attendance_data, days_to_bunk):
     return simulated_data
 
 # ---------- Safe Days Analyzer ----------
-def analyze_safe_days(attendance_data, simulate_days=None):
+def analyze_safe_days(attendance_data, simulate_days=None, timetable=None, subject_map=None):
     """
     Analyze which days are safe to bunk based on current attendance
     Returns a dict with day names and their safety status
@@ -271,13 +413,15 @@ def analyze_safe_days(attendance_data, simulate_days=None):
         attendance_data: Current attendance data
         simulate_days: Optional list of days to simulate bunking before checking safety
     """
+    tt = timetable or TIMETABLE
     # If simulating days, update attendance first
     if simulate_days:
-        attendance_data = simulate_bunking(attendance_data, simulate_days)
-    
+        attendance_data = simulate_bunking(attendance_data, simulate_days, tt, subject_map)
+    mapping, _ = resolve_map(attendance_data, tt, subject_map)
+
     safe_days = {}
     
-    for day, classes in TIMETABLE.items():
+    for day, classes in tt.items():
         day_info = {
             "is_safe": True,
             "reason": [],
@@ -288,27 +432,27 @@ def analyze_safe_days(attendance_data, simulate_days=None):
         # Get unique subjects for this day
         day_subjects = {}
         for cls in classes:
-            if "course_code" in cls:
-                course_code = cls["course_code"]
-                course_name = cls["course_name"]
-                if course_code not in day_subjects:
-                    day_subjects[course_code] = {"name": course_name, "count": 0}
-                day_subjects[course_code]["count"] += 1
+            if "course_code" in cls or "course_name" in cls:
+                key = entry_key(cls)
+                name = cls.get("course_name") or key
+                if key not in day_subjects:
+                    day_subjects[key] = {"name": name, "count": 0}
+                day_subjects[key]["count"] += 1
         
         # Check each subject's attendance - calculate if 75% will be maintained
-        for course_code, subject_info in day_subjects.items():
+        for key, subject_info in day_subjects.items():
             classes_count = subject_info["count"]
             subject_name = subject_info["name"]
             day_info["classes"].append(f"{subject_name} ({classes_count}x)")
             
-            # Find matching subject in attendance data
+            # Find matching subject via resolved map
             for att_subject, att_info in attendance_data.items():
                 if att_subject in ["TOTAL", "PERCENTAGE"]:
                     continue
                     
                 if isinstance(att_info, dict) and "raw" in att_info:
-                    # Check if course code matches
-                    if course_code in att_subject:
+                    # Check if mapped key matches
+                    if mapping.get(att_subject, {}).get("key") == key:
                         # Parse current attendance
                         match = re.match(r"(\d+)/(\d+).*?\((\d+)%\)", att_info["raw"])
                         if match:
@@ -341,6 +485,7 @@ def analyze_safe_days(attendance_data, simulate_days=None):
 
 # ---------- Scraper with Selenium ----------
 def scrape_attendance(username, password):
+    """Returns (attendance_data, timetable, timetable_source)."""
     chrome_options = Options()
     chrome_options.add_argument("--headless=new")
     driver = webdriver.Chrome(options=chrome_options)
@@ -361,8 +506,20 @@ def scrape_attendance(username, password):
             EC.presence_of_element_located((By.CSS_SELECTOR, "table.items"))
         )
 
-        html = driver.page_source
-        return parse_subjectwise_attendance(html)
+        data = parse_subjectwise_attendance(driver.page_source)
+
+        # Fetch per-student timetable with same session
+        try:
+            driver.get(TIMETABLE_URL)
+            WebDriverWait(driver, 30).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "#timetable table.items"))
+            )
+            timetable = parse_timetable(driver.page_source)
+            source = "scraped"
+        except Exception:
+            timetable, source = TIMETABLE, "fallback"
+
+        return data, timetable, source
 
     finally:
         driver.quit()
@@ -375,9 +532,18 @@ def login():
         password = request.form["password"]
 
         try:
-            data = scrape_attendance(username, password)
-            safe_days = analyze_safe_days(data)
+            data, timetable, source = scrape_attendance(username, password)
+            mapping, unmatched = build_subject_map(data, timetable)
+            # Layer 3: Groq maps leftovers (misses only), cached in session
+            for header, key in groq_map_misses(unmatched, timetable_subjects(timetable)).items():
+                mapping[header] = {"key": key, "method": "groq"}
+                unmatched.remove(header)
+            safe_days = analyze_safe_days(data, timetable=timetable, subject_map=mapping)
             session["data"] = data
+            session["timetable"] = timetable
+            session["subject_map"] = mapping
+            session["unmatched"] = unmatched
+            session["timetable_source"] = source
             session["safe_days"] = safe_days
             return redirect(url_for("dashboard"))
         except TimeoutException:
@@ -392,7 +558,36 @@ def login():
 def dashboard():
     data = session.get("data", {})
     safe_days = session.get("safe_days", {})
-    return render_template("dashboard.html", data=data, safe_days=safe_days)
+    return render_template("dashboard.html", data=data, safe_days=safe_days,
+                           subject_map=session.get("subject_map", {}),
+                           unmatched=session.get("unmatched", []),
+                           timetable_subjects=timetable_subjects(session.get("timetable")),
+                           timetable_source=session.get("timetable_source", "fallback"))
+
+@app.route("/confirm_mapping", methods=["POST"])
+def confirm_mapping():
+    """Manual overrides for unmatched subjects, then recompute."""
+    data = session.get("data", {})
+    timetable = session.get("timetable")
+    if not data:
+        return redirect(url_for("login"))
+    mapping = session.get("subject_map", {})
+    unmatched = []
+    for header in request.form:
+        if header in ("TOTAL", "PERCENTAGE"):
+            continue
+        key = request.form[header].strip()
+        if key:
+            mapping[header] = {"key": key, "method": "manual"}
+        elif header in mapping:
+            del mapping[header]
+    for header in data:
+        if header not in ("TOTAL", "PERCENTAGE") and header not in mapping:
+            unmatched.append(header)
+    session["subject_map"] = mapping
+    session["unmatched"] = unmatched
+    session["safe_days"] = analyze_safe_days(data, timetable=timetable, subject_map=mapping)
+    return redirect(url_for("dashboard"))
 
 @app.route("/simulate_bunking", methods=["POST"])
 def simulate_bunking_route():
@@ -405,16 +600,25 @@ def simulate_bunking_route():
     
     if not days_to_simulate:
         return redirect(url_for("dashboard"))
-    
+
+    timetable = session.get("timetable")
+    subject_map = session.get("subject_map", {})
+
     # Calculate safe days after simulating those bunks
-    simulated_safe_days = analyze_safe_days(data, simulate_days=days_to_simulate)
-    simulated_attendance = simulate_bunking(data, days_to_simulate)
+    simulated_safe_days = analyze_safe_days(data, simulate_days=days_to_simulate,
+                                            timetable=timetable, subject_map=subject_map)
+    simulated_attendance = simulate_bunking(data, days_to_simulate,
+                                            timetable=timetable, subject_map=subject_map)
     
     return render_template("dashboard.html", 
                          data=data, 
                          safe_days=simulated_safe_days,
                          simulated_attendance=simulated_attendance,
-                         simulated_days=days_to_simulate)
+                         simulated_days=days_to_simulate,
+                         subject_map=subject_map,
+                         unmatched=session.get("unmatched", []),
+                         timetable_subjects=timetable_subjects(timetable),
+                         timetable_source=session.get("timetable_source", "fallback"))
 
 @app.route("/calculate_leave/<day>")
 def calculate_leave(day):
@@ -422,10 +626,15 @@ def calculate_leave(day):
     if not data:
         return redirect(url_for("login"))
     
-    impact = calculate_leave_impact(data, day)
+    impact = calculate_leave_impact(data, day, timetable=session.get("timetable"),
+                                    subject_map=session.get("subject_map", {}))
     safe_days = session.get("safe_days", {})
     
-    return render_template("dashboard.html", data=data, safe_days=safe_days, leave_impact=impact, selected_day=day)
+    return render_template("dashboard.html", data=data, safe_days=safe_days, leave_impact=impact, selected_day=day,
+                           subject_map=session.get("subject_map", {}),
+                           unmatched=session.get("unmatched", []),
+                           timetable_subjects=timetable_subjects(session.get("timetable")),
+                           timetable_source=session.get("timetable_source", "fallback"))
 
 if __name__ == "__main__":
     app.run(debug=True)

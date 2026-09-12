@@ -141,6 +141,42 @@
   </div>
   {% endif %}
 
+  <!-- Subject mapping -->
+  {% if subject_map or unmatched %}
+  <div class="card">
+    <div class="card-header"><i class="fa-solid fa-link"></i> Subject mapping
+      {% if timetable_source == 'fallback' %}<span class="sync-note">(default timetable — live scrape failed)</span>{% endif %}
+    </div>
+    {% if unmatched %}
+    <div class="flash danger"><i class="fa-solid fa-triangle-exclamation"></i> Unmapped — excluded from verdicts: {{ unmatched | join(', ') }}</div>
+    <form method="POST" action="/confirm_mapping">
+      {% for header in unmatched %}
+      <div style="margin-bottom:12px">
+        <label style="display:block;margin-bottom:5px;font-size:14px">{{ header }}</label>
+        <select name="{{ header }}" class="map-pick" style="width:100%;padding:10px;border-radius:8px">
+          <option value="">-- skip --</option>
+          {% for sub in timetable_subjects %}
+          <option value="{{ sub.course_code or sub.course_name }}">{% if sub.course_code %}{{ sub.course_code }} - {{ sub.course_name }}{% else %}{{ sub.course_name }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endfor %}
+      <button class="btn-sm" style="width:auto" type="submit">Save mapping</button>
+    </form>
+    {% endif %}
+    {% if subject_map %}
+    <details style="margin-top:15px">
+      <summary style="cursor:pointer;font-size:14px;opacity:0.8">Auto mappings ({{ subject_map|length }})</summary>
+      <ul style="margin-top:10px;padding-left:20px;font-size:13px;opacity:0.8">
+        {% for header, m in subject_map.items() %}
+        <li style="margin:4px 0">{{ header }} → <strong>{{ m.key }}</strong> ({{ m.method }})</li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <!-- Subjects -->
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <h3 class="section-title" style="margin:0"><i class="fa-solid fa-book-open"></i> Subject-wise attendance</h3>
