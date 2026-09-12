@@ -90,12 +90,14 @@ input,select{font-family:'Space Mono',monospace !important}
       <span class="font-bold">ETLAB LIVE</span><span class="text-on-surface-variant">· Synced just now</span>
     </div>
   </div>
+  {% if data %}
   <nav class="hidden md:flex items-center gap-2">
-    <a class="bg-acid-yellow text-pure-black border-2 border-pure-black px-3 py-1 font-label-md text-label-md uppercase shadow-[2px_2px_0px_#0E0E0D] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#0E0E0D] transition-all" href="{% if data %}/dashboard#verdict{% else %}/{% endif %}">VERDICT</a>
+    <a class="bg-acid-yellow text-pure-black border-2 border-pure-black px-3 py-1 font-label-md text-label-md uppercase shadow-[2px_2px_0px_#0E0E0D] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#0E0E0D] transition-all" href="/dashboard#verdict">VERDICT</a>
     <a class="text-on-surface hover:bg-surface-container-highest px-3 py-1 font-label-md text-label-md uppercase border-2 border-transparent hover:border-pure-black transition-all" href="/dashboard#planner">TACTICAL_PLAN</a>
     <a class="text-on-surface hover:bg-surface-container-highest px-3 py-1 font-label-md text-label-md uppercase border-2 border-transparent hover:border-pure-black transition-all" href="/dashboard#sandbox">SANDBOX_CALC</a>
     <a class="text-on-surface hover:bg-surface-container-highest px-3 py-1 font-label-md text-label-md uppercase border-2 border-transparent hover:border-pure-black transition-all" href="/dashboard#ledger">ATTENDANCE_LEDGER</a>
   </nav>
+  {% endif %}
   <div class="flex items-center gap-3">
     {% if data %}
     <a href="/" class="hidden sm:flex bg-stark-white text-pure-black border-2 border-pure-black px-2.5 py-1 font-label-md text-label-md uppercase font-bold shadow-[2px_2px_0px_#0E0E0D] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#0E0E0D] transition-all items-center gap-1"><span class="material-symbols-outlined text-sm">refresh</span> SYNC_DATA</a>

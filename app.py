@@ -941,37 +941,57 @@ def refresh_timetable():
         pass  # silently fall back
     return redirect(url_for("dashboard"))
 
-@app.route("/simulate_bunking", methods=["POST"])
-def simulate_bunking_route():
+@app.route("/simulate_dates", methods=["POST"])
+def simulate_dates_route():
     ctx = _get_ctx()
     data, timetable = ctx["data"], ctx["timetable"]
-    if not data:
+    if not data or not timetable:
         return redirect(url_for("login"))
 
-    days_to_simulate = request.form.getlist("days")
-    if not days_to_simulate:
-        return redirect(url_for("dashboard"))
-
+    dates_to_simulate = request.form.getlist("dates")
+    month_arg = request.form.get("month_arg", "")
+    
     subject_map = ctx["subject_map"]
-    simulated_safe_days = analyze_safe_days(data, simulate_days=days_to_simulate,
-                                            timetable=timetable, subject_map=subject_map)
-    simulated_attendance = simulate_bunking(data, days_to_simulate,
-                                            timetable=timetable, subject_map=subject_map)
-
-    impact = calculate_leave_impact(data, days_to_simulate, timetable=timetable, subject_map=subject_map)
-    if impact:
-        impact["projected"] = False
-
-    return render_template("dashboard.html",
-                           data=data, safe_days=simulated_safe_days,
-                           simulated_attendance=simulated_attendance,
-                           simulated_days=days_to_simulate,
-                           leave_impact=impact,
-
+    
+    # We still need cal to render the calendar in the template
+    try:
+        y, m = map(int, month_arg.split("-")) if month_arg else (date.today().year, date.today().month)
+        cal = build_month(y, m, timetable, data, subject_map)
+    except Exception:
+        cal = build_month(date.today().year, date.today().month, timetable, data, subject_map)
+        
+    if not dates_to_simulate:
+        return render_template("dashboard.html",
+                           data=data, safe_days=ctx["safe_days"],
                            subject_map=subject_map,
                            display_names=display_names(data, timetable, subject_map),
                            unmatched=ctx["unmatched"],
-                           timetable_subjects=timetable_subjects(timetable))
+                           timetable_subjects=timetable_subjects(timetable),
+                           cal=cal, month_arg=month_arg)
+
+    if len(dates_to_simulate) == 1:
+        impact = calculate_leave_on_date(data, dates_to_simulate[0], timetable, subject_map)
+    else:
+        weekdays = []
+        for d_str in dates_to_simulate:
+            try:
+                dt = date.fromisoformat(d_str)
+                weekdays.append(dt.strftime("%A"))
+            except Exception:
+                pass
+        impact = calculate_leave_impact(data, weekdays, timetable=timetable, subject_map=subject_map)
+        if impact:
+            impact["projected"] = True
+
+    return render_template("dashboard.html",
+                           data=data, safe_days=ctx["safe_days"],
+                           simulated_days=dates_to_simulate,
+                           leave_impact=impact,
+                           subject_map=subject_map,
+                           display_names=display_names(data, timetable, subject_map),
+                           unmatched=ctx["unmatched"],
+                           timetable_subjects=timetable_subjects(timetable),
+                           cal=cal, month_arg=month_arg)
 
 @app.route("/calculate_leave/<day>")
 def calculate_leave(day):
