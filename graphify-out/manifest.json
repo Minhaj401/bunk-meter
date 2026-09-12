@@ -1,0 +1,26 @@
+{
+  "app.py": {
+    "mtime": 1789195129.8250391,
+    "seen": 1789195793.3689022,
+    "ast_hash": "69eae86136979559d398ec0e6cdf6c2e",
+    "semantic_hash": "69eae86136979559d398ec0e6cdf6c2e"
+  },
+  "templates/base.html": {
+    "mtime": 1789195129.8270395,
+    "seen": 1789195793.368906,
+    "ast_hash": "b64b2a516dd9f6b7670b06fa60606c04",
+    "semantic_hash": "b64b2a516dd9f6b7670b06fa60606c04"
+  },
+  "templates/dashboard.html": {
+    "mtime": 1789195129.8280396,
+    "seen": 1789195793.3689077,
+    "ast_hash": "358ae5d37f6adc6e98d1483a91a719ff",
+    "semantic_hash": "358ae5d37f6adc6e98d1483a91a719ff"
+  },
+  "templates/login.html": {
+    "mtime": 1789195129.822039,
+    "seen": 1789195793.3689086,
+    "ast_hash": "67b1c00f8ee8e527433028934e0bb018",
+    "semantic_hash": "67b1c00f8ee8e527433028934e0bb018"
+  }
+}

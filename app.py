@@ -184,6 +184,27 @@ def ai_map_misses(headers, candidates):
         out[h] = (k, "gemini")
     return out
 
+def display_names(attendance_data, timetable, subject_map):
+    """Map each attendance header to a friendly display name.
+    Prefers the timetable course_name via the resolved subject_map;
+    falls back to the raw ETLAB header (course code)."""
+    try:
+        mapping, _ = resolve_map(attendance_data, timetable, subject_map)
+    except ValueError:
+        return {}
+    names = {}
+    cands = {(entry_key(c) or ""): c for c in timetable_subjects(timetable)}
+    for header in attendance_data:
+        if header in ("TOTAL", "PERCENTAGE"):
+            continue
+        m = mapping.get(header)
+        cand = cands.get(m.get("key")) if isinstance(m, dict) else None
+        if cand and cand.get("course_name"):
+            names[header] = cand["course_name"]
+        else:
+            names[header] = header
+    return names
+
 def resolve_map(attendance_data, timetable, subject_map):
     """Merge stored map with fresh auto-match for any new headers."""
     if not timetable:
@@ -253,6 +274,7 @@ def calculate_leave_impact(attendance_data, day, timetable=None, subject_map=Non
         return None
 
     mapping, _ = resolve_map(attendance_data, tt, subject_map)
+    name_by_header = display_names(attendance_data, tt, subject_map)
 
     impact = {
         "day": day,
@@ -298,7 +320,7 @@ def calculate_leave_impact(attendance_data, day, timetable=None, subject_map=Non
                         percent_loss = round(percent - new_percent, 2)
                         
                         subject_impact = {
-                            "subject": att_subject,
+                            "subject": name_by_header.get(att_subject, att_subject),
                             "current_attendance": f"{attended}/{total} ({percent}%)",
                             "after_leave": f"{new_attended}/{new_total} ({new_percent}%)",
                             "percent_loss": percent_loss,
@@ -309,7 +331,7 @@ def calculate_leave_impact(attendance_data, day, timetable=None, subject_map=Non
                         # Check if it will go below 75%
                         if new_percent < 75:
                             impact["is_allowed"] = False
-                            impact["subjects_below_75"].append(att_subject)
+                            impact["subjects_below_75"].append(name_by_header.get(att_subject, att_subject))
                             subject_impact["below_threshold"] = True
                         else:
                             subject_impact["below_threshold"] = False
@@ -562,27 +584,61 @@ def build_month(year, month, timetable, attendance_data=None, subject_map=None):
             "next": nxt.strftime("%Y-%m"), "current": first.strftime("%Y-%m")}
 
 # ---------- Scraper with Selenium ----------
+LOGIN_URL = "https://christ.etlab.app/user/login"
+ATTENDANCE_URL = "https://christ.etlab.app/ktuacademics/student/viewattendancesubject/25"
+
 def scrape_attendance(username, password):
     """Returns (attendance_data, timetable). Raises ValueError on any failure."""
     chrome_options = Options()
     chrome_options.add_argument("--headless=new")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--window-size=1280,1024")
     driver = webdriver.Chrome(options=chrome_options)
 
     try:
-        driver.get("https://christ.etlab.app/user/login")
+        driver.get(LOGIN_URL)
 
-        # Fill login form
+        # Wait for the login form to be ready before typing
+        WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.ID, "LoginForm_username"))
+        )
         driver.find_element(By.ID, "LoginForm_username").send_keys(username)
         driver.find_element(By.ID, "LoginForm_password").send_keys(password)
         driver.find_element(By.NAME, "yt0").click()
 
+        # Wait for the login POST to actually finish: URL must leave /user/login.
+        # (Previously we navigated away immediately, which could cancel the POST
+        #  before the session cookie was set -> guaranteed timeout.)
+        try:
+            WebDriverWait(driver, 30).until(lambda d: "/user/login" not in d.current_url)
+        except TimeoutException:
+            # Still on the login page: wrong credentials or ETLAB error.
+            # Capture whatever ETLAB says so the user knows the real cause.
+            err = ""
+            for sel in (".errorMessage", ".error", "#LoginForm_username_em_", "#LoginForm_password_em_"):
+                try:
+                    t = driver.find_element(By.CSS_SELECTOR, sel).text.strip()
+                    if t:
+                        err = t
+                        break
+                except Exception:
+                    pass
+            raise ValueError("ETLAB rejected the login" + (f": {err}" if err else " — check your ID/password."))
+
         # Go directly to attendance page
-        driver.get("https://christ.etlab.app/ktuacademics/student/viewattendancesubject/25")
+        driver.get(ATTENDANCE_URL)
 
         # Wait for attendance table to load
-        WebDriverWait(driver, 45).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "table.items"))
-        )
+        try:
+            WebDriverWait(driver, 45).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "table.items"))
+            )
+        except TimeoutException:
+            raise ValueError(
+                "Logged in, but the attendance page did not load "
+                f"(landed on {driver.current_url}). ETLAB may be slow or the page moved. Try again."
+            )
 
         data = parse_subjectwise_attendance(driver.page_source)
 
@@ -626,7 +682,7 @@ def login():
             session["safe_days"] = safe_days
             return redirect(url_for("dashboard"))
         except TimeoutException:
-            return render_template("login.html", error="Login failed — wrong ID/password or attendance page timed out. Try again.")
+            return render_template("login.html", error="ETLAB did not respond (login page or browser timed out). It may be down — try again in a minute.")
         except ValueError as e:
             return render_template("login.html", error=str(e))
         except Exception:
@@ -650,6 +706,7 @@ def dashboard():
             cal = build_month(date.today().year, date.today().month, timetable, data or None, subject_map)
     return render_template("dashboard.html", data=data, safe_days=safe_days,
                            subject_map=subject_map,
+                           display_names=display_names(data, timetable, subject_map),
                            unmatched=session.get("unmatched", []),
                            timetable_subjects=timetable_subjects(timetable),
                            cal=cal, month_arg=request.args.get("month", ""))
@@ -706,6 +763,7 @@ def simulate_bunking_route():
                          simulated_attendance=simulated_attendance,
                          simulated_days=days_to_simulate,
                          subject_map=subject_map,
+                         display_names=display_names(data, timetable, subject_map),
                          unmatched=session.get("unmatched", []),
                          timetable_subjects=timetable_subjects(timetable))
 
@@ -721,6 +779,7 @@ def calculate_leave(day):
     
     return render_template("dashboard.html", data=data, safe_days=safe_days, leave_impact=impact, selected_day=day,
                            subject_map=session.get("subject_map", {}),
+                           display_names=display_names(data, session.get("timetable"), session.get("subject_map", {})),
                            unmatched=session.get("unmatched", []),
                            timetable_subjects=timetable_subjects(session.get("timetable")))
 
@@ -741,6 +800,7 @@ def calculate_date(date_str):
     return render_template("dashboard.html", data=data, safe_days=session.get("safe_days", {}),
                            leave_impact=impact, selected_date=date_str,
                            subject_map=session.get("subject_map", {}),
+                           display_names=display_names(data, timetable, session.get("subject_map", {})),
                            unmatched=session.get("unmatched", []),
                            timetable_subjects=timetable_subjects(timetable),
                            cal=cal, month_arg=f"{y:04d}-{m:02d}")

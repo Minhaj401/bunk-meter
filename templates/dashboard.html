@@ -107,7 +107,7 @@
       <div class="border-t border-pure-black pt-2 space-y-1 max-h-56 overflow-auto">
         {% for subject, info in simulated_attendance.items() %}
         {% if subject not in ['TOTAL','PERCENTAGE'] and info is mapping %}
-        <div class="flex justify-between gap-2 font-label-md text-label-md"><span class="truncate">{{ subject }}</span><span class="tabular font-bold shrink-0">{{ info.raw }}</span></div>
+        <div class="flex justify-between gap-2 font-label-md text-label-md"><span class="truncate">{{ display_names.get(subject, subject) }}</span><span class="tabular font-bold shrink-0">{{ info.raw }}</span></div>
         {% endif %}
         {% endfor %}
       </div>
@@ -237,7 +237,7 @@
         <div class="flex flex-col md:flex-row justify-between md:items-center gap-2 mb-3">
           <div>
             <div class="flex items-center gap-2 flex-wrap"><span class="bg-pure-black text-stark-white font-label-sm text-label-sm px-2 py-0.5 font-bold">{{ subject.split(' ')[0][:8] }}</span>
-              <h3 class="font-headline-sm text-headline-sm font-bold uppercase">{{ subject }}</h3></div>
+              <h3 class="font-headline-sm text-headline-sm font-bold uppercase">{{ display_names.get(subject, subject) }}</h3></div>
             <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5 tabular" data-rawline>{{ info.raw }}</div>
           </div>
           <div class="flex items-center gap-2">
@@ -260,7 +260,7 @@
         <tbody>
         {% for subject, info in data.items() %}
         {% if subject not in ['TOTAL','PERCENTAGE'] and info is mapping %}
-        <tr class="subj border-t-2 border-pure-black" data-raw="{{ info.raw }}"><td class="p-2 font-bold">{{ subject }}</td><td class="p-2 tabular">{{ info.raw }}</td><td class="p-2 tabular font-bold" data-pct>—</td><td class="p-2"><span data-pill class="font-label-sm text-label-sm font-bold">{{ info.status }}</span></td></tr>
+        <tr class="subj border-t-2 border-pure-black" data-raw="{{ info.raw }}"><td class="p-2 font-bold">{{ display_names.get(subject, subject) }}</td><td class="p-2 tabular">{{ info.raw }}</td><td class="p-2 tabular font-bold" data-pct>—</td><td class="p-2"><span data-pill class="font-label-sm text-label-sm font-bold">{{ info.status }}</span></td></tr>
         {% endif %}
         {% endfor %}
         </tbody>
