@@ -56,11 +56,9 @@ python app.py
 For Software:
 
 # Screenshots
-![Dashboard Cards View](https://i.imgur.com/screenshot_cards.png)
-*Subject cards showing the current buffer and safe/deficit status*
 
-![Verdict Simulation](https://i.imgur.com/screenshot_verdict.png)
-*The overall verdict telling you exactly what happens if you bunk today*
 
-![Table Matrix](https://i.imgur.com/screenshot_table.png)
-*Table matrix view for a more condensed breakdown*
+![Bunk Meter](assets/image%20copy%202.png)
+![Bunk Results](assets/image.png)
+![Calender](assets/image%20copy.png)
+
