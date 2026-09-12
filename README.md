@@ -56,7 +56,7 @@ playwright install chromium
 # Run
 ```bash
 python app.py
-``
+```
 
 # Screenshots
 
