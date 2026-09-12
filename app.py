@@ -145,7 +145,7 @@ def groq_map_misses(headers, candidates):
                                      data=body,
                                      headers={"Authorization": "Bearer " + api_key,
                                               "Content-Type": "application/json",
-                                              "User-Agent": "BunkMaster/1.0",
+                                              "User-Agent": "BunkMeter/1.0",
                                               "Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=20) as r:
             content = json.loads(r.read())["choices"][0]["message"]["content"]
@@ -166,7 +166,7 @@ def gemini_map_misses(headers, candidates):
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=" + api_key,
             data=body,
             headers={"Content-Type": "application/json",
-                     "User-Agent": "BunkMaster/1.0",
+                     "User-Agent": "BunkMeter/1.0",
                      "Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=20) as r:
             content = json.loads(r.read())["candidates"][0]["content"]["parts"][0]["text"]

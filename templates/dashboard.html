@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}BUNKMASTER v2.0 // TELEMETRY{% endblock %}
+{% block title %}BUNKMETER v2.0 // TELEMETRY{% endblock %}
 {% block ticker %}
-<span>⚡ BUNKMASTER v2.0 • STATUS: {{ data.PERCENTAGE if 'PERCENTAGE' in data else '—' }} • ETLAB SCRAPER: LIVE • CHRIST UNIVERSITY • NO REGRETS POLICY</span>
+<span>⚡ BUNKMETER v2.0 • STATUS: {{ data.PERCENTAGE if 'PERCENTAGE' in data else '—' }} • ETLAB SCRAPER: LIVE • CHRIST UNIVERSITY • NO REGRETS POLICY</span>
 {% if leave_impact and not leave_impact.is_allowed %}<span>🔥 DEFICIT RISK ON {{ leave_impact.day|upper }} • {{ leave_impact.subjects_below_75|join(', ') }} • DO NOT BUNK BLIND • ATTENDANCE IS FUEL</span>{% endif %}
-<span>⚡ BUNKMASTER v2.0 • STATUS: {{ data.PERCENTAGE if 'PERCENTAGE' in data else '—' }} • ETLAB SCRAPER: LIVE • CHRIST UNIVERSITY • NO REGRETS POLICY</span>
+<span>⚡ BUNKMETER v2.0 • STATUS: {{ data.PERCENTAGE if 'PERCENTAGE' in data else '—' }} • ETLAB SCRAPER: LIVE • CHRIST UNIVERSITY • NO REGRETS POLICY</span>
 {% if leave_impact and not leave_impact.is_allowed %}<span>🔥 DEFICIT RISK ON {{ leave_impact.day|upper }} • {{ leave_impact.subjects_below_75|join(', ') }} • DO NOT BUNK BLIND • ATTENDANCE IS FUEL</span>{% endif %}
 {% endblock %}
 {% block content %}
