@@ -12,6 +12,11 @@
   <a href="/" class="inline-block mt-4 bg-acid-yellow border-2 border-pure-black px-4 py-2 font-label-md text-label-md font-bold uppercase shadow-[4px_4px_0px_#0E0E0D]">GO TO LOGIN →</a>
 </div>
 {% else %}
+{% if session.get('is_cached') %}
+<div class="bg-error-container text-pure-black border-4 border-error p-4 mb-8 font-label-md text-label-md font-bold uppercase shadow-[6px_6px_0px_#ba1a1a]">
+  ⚠ OFFLINE MODE: ETLAB is currently unreachable. You are viewing cached data from your last successful login ({{ session.get('tt_source') }}).
+</div>
+{% endif %}
 <div class="mb-8 flex flex-col md:flex-row md:items-end justify-between border-b-4 border-pure-black pb-4 gap-4">
   <div>
     <div class="flex items-center gap-2 mb-2">

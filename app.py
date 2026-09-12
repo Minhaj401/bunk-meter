@@ -57,6 +57,13 @@ def init_db():
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
         """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS user_attendance (
+                username    TEXT PRIMARY KEY,
+                attendance  TEXT NOT NULL,
+                updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
         db.commit()
 
 init_db()
@@ -100,6 +107,29 @@ def db_load_timetable(username):
         except Exception:
             return None
     return None
+
+def db_load_attendance(username):
+    """Return parsed attendance dict from SQLite, or None."""
+    with get_db() as db:
+        row = db.execute(
+            "SELECT attendance FROM user_attendance WHERE username=?",
+            (username,)
+        ).fetchone()
+    if row:
+        try:
+            return json.loads(row["attendance"])
+        except Exception:
+            return None
+    return None
+
+def db_save_attendance(username, attendance):
+    with get_db() as db:
+        db.execute("""
+            INSERT INTO user_attendance (username, attendance)
+            VALUES (?, ?)
+            ON CONFLICT(username) DO UPDATE SET attendance=excluded.attendance, updated_at=datetime('now')
+        """, (username, json.dumps(attendance)))
+        db.commit()
 
 def db_save_timetable(username, timetable):
     with get_db() as db:
@@ -800,6 +830,8 @@ def login():
                 db_save_timetable(username, timetable)
                 timetable_source = "fresh"
 
+            db_save_attendance(username, data)
+
             sid, mapping, unmatched = _build_session(username, data, timetable)
 
             session.clear()
@@ -808,16 +840,33 @@ def login():
             session["subject_map"] = mapping
             session["unmatched"]   = unmatched
             session["tt_source"]   = timetable_source
+            session["is_cached"]   = False
             session.modified = True
 
             return redirect(url_for("dashboard"))
 
-        except TimeoutException:
-            return render_template("login.html", error="ETLAB did not respond. It may be down — try again in a minute.")
-        except ValueError as e:
-            return render_template("login.html", error=str(e))
-        except Exception:
-            return f"<h1 style='color:red'>❌ Error:</h1><pre>{traceback.format_exc()}</pre>"
+        except Exception as e:
+            # Fallback to database
+            cached_tt = db_load_timetable(username)
+            cached_att = db_load_attendance(username)
+            if cached_tt and cached_att:
+                sid, mapping, unmatched = _build_session(username, cached_att, cached_tt)
+                session.clear()
+                session["sid"]         = sid
+                session["username"]    = username
+                session["subject_map"] = mapping
+                session["unmatched"]   = unmatched
+                session["tt_source"]   = "cached"
+                session["is_cached"]   = True
+                session.modified = True
+                return redirect(url_for("dashboard"))
+                
+            if isinstance(e, TimeoutException):
+                return render_template("login.html", error="ETLAB did not respond. It may be down — try again in a minute.")
+            elif isinstance(e, ValueError):
+                return render_template("login.html", error=str(e))
+            else:
+                return f"<h1 style='color:red'>❌ Error:</h1><pre>{traceback.format_exc()}</pre>"
 
     return render_template("login.html")
 
