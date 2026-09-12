@@ -1,0 +1,178 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+:root {
+  --primary: #6c5ce7;
+  --primary-light: #a29bfe;
+  --secondary: #00b894;
+  --danger: #ff7675;
+  --success: #00cec9;
+  --dark: #2d3436;
+  --darker: #1e272e;
+  --light: #dfe6e9;
+  --card-bg: #2d3436;
+  --text: #f5f6fa;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background: var(--darker);
+  color: var(--text);
+  padding: 20px;
+  margin: 0;
+  min-height: 100vh;
+}
+
+.login-container {
+  max-width: 400px;
+  margin: 50px auto;
+  padding: 30px;
+  background: var(--card-bg);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+input, button {
+  width: 90%;
+  margin: 10px 0;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.2);
+}
+
+button {
+  background: var(--primary);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 10px rgba(108, 92, 231, 0.3);
+  transition: all 0.3s ease;
+}
+
+button:hover {
+  background: var(--primary-light);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(108, 92, 231, 0.4);
+}
+
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  background: var(--card-bg);
+  margin-top: 20px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+th {
+  background: var(--primary);
+  color: white;
+  padding: 15px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 1px;
+  font-size: 14px;
+}
+
+td {
+  padding: 15px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  text-align: center;
+  font-size: 15px;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tr:hover td {
+  background: rgba(255,255,255,0.05);
+}
+
+.flash {
+  padding: 12px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-weight: 500;
+  animation: fadeIn 0.5s ease;
+}
+
+.flash.danger {
+  background: rgba(255, 118, 117, 0.2);
+  color: var(--danger);
+  border-left: 4px solid var(--danger);
+}
+
+.flash.success {
+  background: rgba(0, 206, 201, 0.2);
+  color: var(--success);
+  border-left: 4px solid var(--success);
+}
+
+/* Status indicators */
+.status-warning {
+  color: #fdcb6e;
+}
+
+.status-success {
+  color: var(--success);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Card styles */
+.card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.card-header {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: var(--primary-light);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding-bottom: 10px;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .login-container {
+    width: 90%;
+    max-width: none;
+    margin: 20px auto;
+    padding: 20px;
+  }
+  
+  table {
+    display: block;
+    overflow-x: auto;
+  }
+  
+  th, td {
+    padding: 10px;
+  }
+}
