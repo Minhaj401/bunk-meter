@@ -120,17 +120,25 @@ def build_subject_map(attendance_data, timetable):
             unmatched.append(header)
     return mapping, unmatched
 
+def _ai_prompt(headers, candidates):
+    options = [{"key": entry_key(c), "name": c.get("course_name", "")} for c in candidates]
+    return ("Map each attendance subject to the timetable subject key. "
+            "Reply ONLY with a JSON object like {\"attendance_subject\": \"key\"}.\nAttendance: "
+            + json.dumps(headers) + "\nTimetable: " + json.dumps(options))
+
+def _ai_validate(content, headers, candidates):
+    content = re.sub(r"^```(?:json)?|```$", "", content.strip(), flags=re.MULTILINE).strip()
+    raw = json.loads(content)
+    valid = {entry_key(c) for c in candidates}
+    return {h: k for h, k in raw.items() if h in headers and k in valid}
+
 def groq_map_misses(headers, candidates):
     """Layer 3: ask Groq to map leftover headers. Returns {header: key}."""
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key or not headers:
         return {}
-    options = [{"key": entry_key(c), "name": c.get("course_name", "")} for c in candidates]
-    prompt = ("Map each attendance subject to the timetable subject key. "
-              "Reply ONLY with a JSON object like {\"attendance_subject\": \"key\"}.\nAttendance: "
-              + json.dumps(headers) + "\nTimetable: " + json.dumps(options))
     body = json.dumps({"model": "llama-3.1-8b-instant",
-                       "messages": [{"role": "user", "content": prompt}],
+                       "messages": [{"role": "user", "content": _ai_prompt(headers, candidates)}],
                        "temperature": 0}).encode()
     try:
         req = urllib.request.Request("https://api.groq.com/openai/v1/chat/completions",
@@ -141,12 +149,40 @@ def groq_map_misses(headers, candidates):
                                               "Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=20) as r:
             content = json.loads(r.read())["choices"][0]["message"]["content"]
-        content = re.sub(r"^```(?:json)?|```$", "", content.strip(), flags=re.MULTILINE).strip()
-        raw = json.loads(content)
-        valid = {entry_key(c) for c in candidates}
-        return {h: k for h, k in raw.items() if h in headers and k in valid}
+        return _ai_validate(content, headers, candidates)
     except Exception:
         return {}
+
+def gemini_map_misses(headers, candidates):
+    """Layer 3b: Gemini fallback for leftover headers. Returns {header: key}."""
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key or not headers:
+        return {}
+    body = json.dumps({"contents": [{"parts": [{"text": _ai_prompt(headers, candidates)}]}],
+                       "generationConfig": {"temperature": 0,
+                                            "responseMimeType": "application/json"}}).encode()
+    try:
+        req = urllib.request.Request(
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=" + api_key,
+            data=body,
+            headers={"Content-Type": "application/json",
+                     "User-Agent": "BunkMaster/1.0",
+                     "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            content = json.loads(r.read())["candidates"][0]["content"]["parts"][0]["text"]
+        return _ai_validate(content, headers, candidates)
+    except Exception:
+        return {}
+
+def ai_map_misses(headers, candidates):
+    """Layer 3: Groq first, Gemini fallback. Returns {header: (key, method)}."""
+    out = {}
+    for h, k in groq_map_misses(headers, candidates).items():
+        out[h] = (k, "groq")
+    rest = [h for h in headers if h not in out]
+    for h, k in gemini_map_misses(rest, candidates).items():
+        out[h] = (k, "gemini")
+    return out
 
 def resolve_map(attendance_data, timetable, subject_map):
     """Merge stored map with fresh auto-match for any new headers."""
@@ -578,9 +614,9 @@ def login():
         try:
             data, timetable = scrape_attendance(username, password)
             mapping, unmatched = build_subject_map(data, timetable)
-            # Layer 3: Groq maps leftovers (misses only), cached in session
-            for header, key in groq_map_misses(unmatched, timetable_subjects(timetable)).items():
-                mapping[header] = {"key": key, "method": "groq"}
+            # Layer 3: AI maps leftovers (Groq, then Gemini), cached in session
+            for header, (key, method) in ai_map_misses(unmatched, timetable_subjects(timetable)).items():
+                mapping[header] = {"key": key, "method": method}
                 unmatched.remove(header)
             safe_days = analyze_safe_days(data, timetable=timetable, subject_map=mapping)
             session["data"] = data
