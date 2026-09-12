@@ -226,31 +226,10 @@
         <button id="v-table" class="bg-stark-white px-3 py-1 uppercase hover:bg-surface-container">TABLE MATRIX</button>
       </div>
     </div>
-    {% if unmatched %}
-    <div class="bg-error-container border-2 border-error p-4 mb-4">
-      <div class="font-body-sm text-body-sm mb-3">
-        <span class="font-bold uppercase text-error">UNMAPPED — EXCLUDED FROM VERDICTS:</span> 
-        {{ unmatched|join(', ') }}
-      </div>
-      <form method="POST" action="/confirm_mapping" class="space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {% for header in unmatched %}
-          <div class="flex flex-col gap-1">
-            <span class="font-label-md text-label-md font-bold truncate" title="{{ header }}">{{ header }}</span>
-            <select name="{{ header }}" class="w-full border-2 border-pure-black bg-stark-white px-2 py-1.5 font-body-sm text-body-sm rounded-none">
-              <option value="">-- skip --</option>
-              {% for sub in timetable_subjects %}<option value="{{ sub.course_code or sub.course_name }}">{% if sub.course_code %}{{ sub.course_code }} - {{ sub.course_name }}{% else %}{{ sub.course_name }}{% endif %}</option>{% endfor %}
-            </select>
-          </div>
-          {% endfor %}
-        </div>
-        <button class="bg-pure-black text-stark-white border-2 border-pure-black px-4 py-2 font-label-md text-label-md font-bold uppercase hover:bg-error transition-colors">SAVE MAPPING</button>
-      </form>
-    </div>
-    {% endif %}
+
     <div class="space-y-4" id="subject-cards">
       {% for subject, info in data.items() %}
-      {% if subject not in ['TOTAL','PERCENTAGE'] and info is mapping %}
+      {% if subject not in ['TOTAL','PERCENTAGE'] and info is mapping and info.status != 'N/A' %}
       <div class="subj border-2 border-pure-black p-4 bg-surface-container-lowest shadow-[4px_4px_0px_#0E0E0D] hover:bg-surface-container-low transition-colors" data-raw="{{ info.raw }}">
         <div class="flex flex-col gap-3 mb-3">
           <div class="flex items-center gap-2 flex-wrap">
@@ -280,19 +259,105 @@
       </div>
       {% endif %}
       {% endfor %}
+
+      {% set has_na = namespace(value=false) %}
+      {% for subject, info in data.items() %}
+      {% if subject not in ['TOTAL','PERCENTAGE'] and info is mapping and info.status == 'N/A' %}{% set has_na.value = true %}{% endif %}
+      {% endfor %}
+      
+      {% if has_na.value %}
+      <details class="mt-4 border-2 border-pure-black bg-surface-container-lowest">
+        <summary class="cursor-pointer font-label-md text-label-md font-bold uppercase p-4 bg-surface-container-low hover:bg-surface-container transition-colors">
+          NO CLASSES YET / UNAVAILABLE (0/0)
+        </summary>
+        <div class="p-4 space-y-4 bg-stark-white border-t-2 border-pure-black">
+          {% for subject, info in data.items() %}
+          {% if subject not in ['TOTAL','PERCENTAGE'] and info is mapping and info.status == 'N/A' %}
+          <div class="subj border-2 border-pure-black p-4 bg-surface-container-lowest shadow-[4px_4px_0px_#0E0E0D] hover:bg-surface-container-low transition-colors opacity-80" data-raw="{{ info.raw }}">
+            <div class="flex flex-col gap-3 mb-3">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="bg-pure-black text-stark-white font-label-sm text-label-sm px-2 py-0.5 font-bold">{{ subject.split(' ')[0][:8] }}</span>
+                <h3 class="font-headline-sm text-headline-sm font-bold uppercase">{{ display_names.get(subject, subject) }}</h3>
+              </div>
+              <div class="flex items-center flex-wrap gap-4 bg-stark-white border-2 border-pure-black p-3 shadow-[2px_2px_0px_#0E0E0D]">
+                <div class="font-headline-md text-headline-md font-bold tabular" data-pct>—</div>
+                <div class="font-body-md text-body-md font-bold tabular border-l-2 border-pure-black pl-4" data-rawline>{{ info.raw }}</div>
+                <span data-pill class="border-2 border-pure-black px-3 py-1 font-label-sm text-label-sm font-bold bg-surface-dim sm:ml-auto">{{ info.status }}</span>
+              </div>
+            </div>
+            <div class="w-full bg-surface-container-highest h-3 border-2 border-pure-black mb-2"><div data-bar class="bg-surface-dim h-full" style="width:0%"></div></div>
+            <div class="flex justify-between items-center font-label-sm text-label-sm text-on-surface-variant pt-1 flex-wrap gap-2">
+              <span data-floor>Floor: 75%</span>
+              <div class="flex gap-2 items-center">
+                {% if subject_map.get(subject) %}
+                <form method="POST" action="/remove_mapping/{{ subject }}" class="inline">
+                  <button type="submit" class="font-label-sm text-label-sm font-bold text-error border border-error px-1 hover:bg-error hover:text-stark-white transition-colors" title="Remove mapping for {{ subject }}">✕ UNMAP</button>
+                </form>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
     </div>
     <div id="subject-table" class="hidden overflow-x-auto border-2 border-pure-black">
       <table class="w-full font-body-sm text-body-sm">
         <thead><tr class="bg-pure-black text-stark-white font-label-sm text-label-sm uppercase"><th class="text-left p-2">Subject</th><th class="p-2">Raw</th><th class="p-2">%</th><th class="p-2">Status</th><th class="p-2"></th></tr></thead>
         <tbody>
         {% for subject, info in data.items() %}
-        {% if subject not in ['TOTAL','PERCENTAGE'] and info is mapping %}
+        {% if subject not in ['TOTAL','PERCENTAGE'] and info is mapping and info.status != 'N/A' %}
         <tr class="subj border-t-2 border-pure-black" data-raw="{{ info.raw }}"><td class="p-2 font-bold">{{ display_names.get(subject, subject) }}<div class="font-label-sm text-label-sm text-on-surface-variant">{{ subject }}</div></td><td class="p-2 tabular">{{ info.raw }}</td><td class="p-2 tabular font-bold" data-pct>—</td><td class="p-2"><span data-pill class="font-label-sm text-label-sm font-bold">{{ info.status }}</span></td><td class="p-2">{% if subject_map.get(subject) %}<form method="POST" action="/remove_mapping/{{ subject }}"><button type="submit" class="font-label-sm text-label-sm font-bold text-error border border-error px-1 hover:bg-error hover:text-stark-white transition-colors">✕</button></form>{% endif %}</td></tr>
         {% endif %}
         {% endfor %}
         </tbody>
       </table>
+      
+      {% if has_na.value %}
+      <details class="border-t-2 border-pure-black bg-surface-container-lowest">
+        <summary class="cursor-pointer font-label-md text-label-md font-bold uppercase p-3 hover:bg-surface-container transition-colors">
+          NO CLASSES YET / UNAVAILABLE (0/0)
+        </summary>
+        <table class="w-full font-body-sm text-body-sm border-t-2 border-pure-black bg-stark-white">
+          <tbody>
+          {% for subject, info in data.items() %}
+          {% if subject not in ['TOTAL','PERCENTAGE'] and info is mapping and info.status == 'N/A' %}
+          <tr class="subj border-t border-pure-black opacity-80" data-raw="{{ info.raw }}"><td class="p-2 font-bold">{{ display_names.get(subject, subject) }}<div class="font-label-sm text-label-sm text-on-surface-variant">{{ subject }}</div></td><td class="p-2 tabular">{{ info.raw }}</td><td class="p-2 tabular font-bold" data-pct>—</td><td class="p-2"><span data-pill class="font-label-sm text-label-sm font-bold text-on-surface-variant bg-surface-dim px-2 py-0.5">{{ info.status }}</span></td><td class="p-2">{% if subject_map.get(subject) %}<form method="POST" action="/remove_mapping/{{ subject }}"><button type="submit" class="font-label-sm text-label-sm font-bold text-error border border-error px-1 hover:bg-error hover:text-stark-white transition-colors">✕</button></form>{% endif %}</td></tr>
+          {% endif %}
+          {% endfor %}
+          </tbody>
+        </table>
+      </details>
+      {% endif %}
     </div>
+    {% if unmatched %}
+    <details class="mt-4 bg-error-container border-2 border-error">
+      <summary class="cursor-pointer font-label-md text-label-md font-bold uppercase p-3">
+        <span class="text-error">UNMAPPED ({{ unmatched|length }}) — EXCLUDED FROM VERDICTS</span>
+      </summary>
+      <div class="p-4 pt-0 border-t-2 border-error">
+        <div class="font-body-sm text-body-sm mb-3 mt-3">
+          These headers appeared in your attendance but couldn't be matched: {{ unmatched|join(', ') }}
+        </div>
+        <form method="POST" action="/confirm_mapping" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for header in unmatched %}
+            <div class="flex flex-col gap-1">
+              <span class="font-label-md text-label-md font-bold truncate" title="{{ header }}">{{ header }}</span>
+              <select name="{{ header }}" class="w-full border-2 border-pure-black bg-stark-white px-2 py-1.5 font-body-sm text-body-sm rounded-none">
+                <option value="">-- skip --</option>
+                {% for sub in timetable_subjects %}<option value="{{ sub.course_code or sub.course_name }}">{% if sub.course_code %}{{ sub.course_code }} - {{ sub.course_name }}{% else %}{{ sub.course_name }}{% endif %}</option>{% endfor %}
+              </select>
+            </div>
+            {% endfor %}
+          </div>
+          <button class="bg-pure-black text-stark-white border-2 border-pure-black px-4 py-2 font-label-md text-label-md font-bold uppercase hover:bg-error transition-colors">SAVE MAPPING</button>
+        </form>
+      </div>
+    </details>
+    {% endif %}
     {% if subject_map %}
     <details class="mt-4"><summary class="cursor-pointer font-label-md text-label-md font-bold uppercase">Active mappings ({{ subject_map|length }}) — click to manage</summary>
       <ul class="mt-2 font-body-sm text-body-sm space-y-1">
