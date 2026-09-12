@@ -136,7 +136,9 @@ def groq_map_misses(headers, candidates):
         req = urllib.request.Request("https://api.groq.com/openai/v1/chat/completions",
                                      data=body,
                                      headers={"Authorization": "Bearer " + api_key,
-                                              "Content-Type": "application/json"})
+                                              "Content-Type": "application/json",
+                                              "User-Agent": "BunkMaster/1.0",
+                                              "Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=20) as r:
             content = json.loads(r.read())["choices"][0]["message"]["content"]
         content = re.sub(r"^```(?:json)?|```$", "", content.strip(), flags=re.MULTILINE).strip()
