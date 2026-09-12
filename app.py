@@ -6,6 +6,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from bs4 import BeautifulSoup
+import calendar
 import difflib
 import json
 import math
@@ -13,6 +14,7 @@ import os
 import re
 import traceback
 import urllib.request
+from datetime import date, timedelta
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key_here"
@@ -446,6 +448,81 @@ def analyze_safe_days(attendance_data, simulate_days=None, timetable=None, subje
     
     return safe_days
 
+# ---------- Forward Projection + Monthly Calendar ----------
+def project_forward(attendance_data, timetable, subject_map, start, end):
+    """Assume every class from start to end (inclusive) attended. Returns updated copy."""
+    proj = {h: (dict(v) if isinstance(v, dict) else v) for h, v in attendance_data.items()}
+    if start > end:
+        return proj
+    mapping, _ = resolve_map(attendance_data, timetable, subject_map)
+    header_by_key = {}
+    for h, m in mapping.items():
+        header_by_key.setdefault(m["key"], h)
+    counts = {}
+    d = start
+    while d <= end:
+        for cls in (timetable or {}).get(d.strftime("%A"), []):
+            if "course_code" in cls or "course_name" in cls:
+                key = entry_key(cls)
+                counts[key] = counts.get(key, 0) + 1
+        d += timedelta(days=1)
+    for key, n in counts.items():
+        h = header_by_key.get(key)
+        if not h or not isinstance(proj.get(h), dict):
+            continue
+        mth = re.match(r"(\d+)/(\d+)", proj[h].get("raw", ""))
+        if not mth:
+            continue
+        a, t = int(mth.group(1)) + n, int(mth.group(2)) + n
+        pct = round(a / t * 100) if t else 0
+        proj[h]["raw"] = f"{a}/{t} ({pct}%)"
+    return proj
+
+def calculate_leave_on_date(attendance_data, date_str, timetable, subject_map):
+    """Leave impact on a calendar date. Intervening days assumed fully attended."""
+    target = date.fromisoformat(date_str)
+    today = date.today()
+    if target < today:
+        return None
+    if target > today:
+        attendance_data = project_forward(attendance_data, timetable, subject_map,
+                                          today + timedelta(days=1), target - timedelta(days=1))
+    wd = target.strftime("%A")
+    impact = calculate_leave_impact(attendance_data, wd, timetable=timetable, subject_map=subject_map)
+    if impact is None:
+        return None
+    impact["day"] = target.strftime("%d %b") + f" ({wd})"
+    impact["date"] = date_str
+    impact["projected"] = target > today
+    return impact
+
+def build_month(year, month, timetable, attendance_data=None, subject_map=None):
+    """Month grid for calendar. Each day: link/safety when projectable."""
+    weeks = []
+    for week in calendar.monthcalendar(year, month):
+        row = []
+        for daynum in week:
+            if not daynum:
+                row.append(None)
+                continue
+            d = date(year, month, daynum)
+            wd = d.strftime("%A")
+            n = sum(1 for c in (timetable or {}).get(wd, [])
+                    if "course_code" in c or "course_name" in c)
+            cell = {"num": daynum, "iso": d.isoformat(), "weekday": wd,
+                    "past": d < date.today(), "today": d == date.today(),
+                    "has_classes": bool(n), "count": n, "allowed": None}
+            if n and d >= date.today() and attendance_data is not None:
+                imp = calculate_leave_on_date(attendance_data, d.isoformat(), timetable, subject_map)
+                cell["allowed"] = imp["is_allowed"] if imp else None
+            row.append(cell)
+        weeks.append(row)
+    first = date(year, month, 1)
+    nxt = date(year + (month == 12), month % 12 + 1, 1)
+    return {"title": first.strftime("%B %Y"), "weeks": weeks,
+            "prev": (first - timedelta(days=1)).strftime("%Y-%m"),
+            "next": nxt.strftime("%Y-%m"), "current": first.strftime("%Y-%m")}
+
 # ---------- Scraper with Selenium ----------
 def scrape_attendance(username, password):
     """Returns (attendance_data, timetable). Raises ValueError on any failure."""
@@ -524,10 +601,20 @@ def login():
 def dashboard():
     data = session.get("data", {})
     safe_days = session.get("safe_days", {})
+    timetable = session.get("timetable")
+    subject_map = session.get("subject_map", {})
+    cal = None
+    if timetable:
+        try:
+            y, m = map(int, request.args.get("month", date.today().strftime("%Y-%m")).split("-"))
+            cal = build_month(y, m, timetable, data or None, subject_map)
+        except ValueError:
+            cal = build_month(date.today().year, date.today().month, timetable, data or None, subject_map)
     return render_template("dashboard.html", data=data, safe_days=safe_days,
-                           subject_map=session.get("subject_map", {}),
+                           subject_map=subject_map,
                            unmatched=session.get("unmatched", []),
-                           timetable_subjects=timetable_subjects(session.get("timetable")))
+                           timetable_subjects=timetable_subjects(timetable),
+                           cal=cal, month_arg=request.args.get("month", ""))
 
 @app.route("/confirm_mapping", methods=["POST"])
 def confirm_mapping():
@@ -598,6 +685,27 @@ def calculate_leave(day):
                            subject_map=session.get("subject_map", {}),
                            unmatched=session.get("unmatched", []),
                            timetable_subjects=timetable_subjects(session.get("timetable")))
+
+@app.route("/calculate_date/<date_str>")
+def calculate_date(date_str):
+    data = session.get("data", {})
+    timetable = session.get("timetable")
+    if not data or not timetable:
+        return redirect(url_for("login"))
+    try:
+        impact = calculate_leave_on_date(data, date_str, timetable, session.get("subject_map", {}))
+    except ValueError:
+        return redirect(url_for("dashboard"))
+    if impact is None:
+        return redirect(url_for("dashboard"))
+    y, m = map(int, date_str.split("-")[:2])
+    cal = build_month(y, m, timetable, data, session.get("subject_map", {}))
+    return render_template("dashboard.html", data=data, safe_days=session.get("safe_days", {}),
+                           leave_impact=impact, selected_date=date_str,
+                           subject_map=session.get("subject_map", {}),
+                           unmatched=session.get("unmatched", []),
+                           timetable_subjects=timetable_subjects(timetable),
+                           cal=cal, month_arg=f"{y:04d}-{m:02d}")
 
 if __name__ == "__main__":
     app.run(debug=True)

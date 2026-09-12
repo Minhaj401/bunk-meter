@@ -1,268 +1,329 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>BunkMaster | Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="/static/tokens.css">
-  <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-<div class="wrap">
-
-  <header style="display:flex;justify-content:space-between;align-items:center;margin-bottom:30px">
-    <div>
-      <h1 class="logo logo-sm">BUNK<span>MASTER</span></h1>
-      <p class="tagline">Can I bunk today? Answer first.</p>
+{% extends "base.html" %}
+{% block title %}BUNKMASTER v2.0 // TELEMETRY{% endblock %}
+{% block ticker %}
+<span>⚡ BUNKMASTER v2.0 • STATUS: {{ data.PERCENTAGE if 'PERCENTAGE' in data else '—' }} • ETLAB SCRAPER: LIVE • CHRIST UNIVERSITY • NO REGRETS POLICY</span>
+{% if leave_impact and not leave_impact.is_allowed %}<span>🔥 DEFICIT RISK ON {{ leave_impact.day|upper }} • {{ leave_impact.subjects_below_75|join(', ') }} • DO NOT BUNK BLIND • ATTENDANCE IS FUEL</span>{% endif %}
+<span>⚡ BUNKMASTER v2.0 • STATUS: {{ data.PERCENTAGE if 'PERCENTAGE' in data else '—' }} • ETLAB SCRAPER: LIVE • CHRIST UNIVERSITY • NO REGRETS POLICY</span>
+{% if leave_impact and not leave_impact.is_allowed %}<span>🔥 DEFICIT RISK ON {{ leave_impact.day|upper }} • {{ leave_impact.subjects_below_75|join(', ') }} • DO NOT BUNK BLIND • ATTENDANCE IS FUEL</span>{% endif %}
+{% endblock %}
+{% block content %}
+{% if not data %}
+<div class="bg-stark-white border-4 border-pure-black p-8 shadow-[6px_6px_0px_#0E0E0D] text-center max-w-xl mx-auto">
+  <div class="font-headline-lg text-headline-lg font-bold uppercase">NO TELEMETRY</div>
+  <p class="font-body-md text-body-md mt-2">No attendance synced. Log in again.</p>
+  <a href="/" class="inline-block mt-4 bg-acid-yellow border-2 border-pure-black px-4 py-2 font-label-md text-label-md font-bold uppercase shadow-[4px_4px_0px_#0E0E0D]">GO TO LOGIN →</a>
+</div>
+{% else %}
+<div class="mb-8 flex flex-col md:flex-row md:items-end justify-between border-b-4 border-pure-black pb-4 gap-4">
+  <div>
+    <div class="flex items-center gap-2 mb-2">
+      <span class="bg-pure-black text-acid-yellow font-label-sm text-label-sm px-2 py-0.5 border border-pure-black">DEPARTMENT OF COMPUTER SCIENCE</span>
+      <span class="bg-hacker-cyan text-pure-black font-label-sm text-label-sm px-2 py-0.5 border border-pure-black">SEMESTER · B.TECH</span>
     </div>
-    <a href="/" style="text-decoration:none"><button class="btn-ghost"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button></a>
-  </header>
-
-  {% if not data %}
-  <div class="card state-card">
-    <div class="big">📭</div>
-    <h2 style="font:var(--text-h1)">No attendance yet</h2>
-    <p class="hero-sub">Log in again to sync from ETLAB.</p>
-    <a href="/"><button class="btn-sm" style="width:auto">Go to login</button></a>
+    <h1 class="font-headline-xl text-headline-xl-mobile md:text-headline-xl font-bold tracking-tight uppercase">TELEMETRY // COCKPIT</h1>
   </div>
-  {% else %}
+  <div class="flex items-center gap-3">
+    <span class="font-label-sm text-label-sm uppercase bg-concrete-gray px-2 py-1 border-2 border-pure-black">MANDATE: &gt;= 75.0%</span>
+    <span class="font-label-sm text-label-sm uppercase bg-acid-yellow px-2 py-1 border-2 border-pure-black font-bold">MODE: MAXIMUM EFFICIENCY</span>
+  </div>
+</div>
 
-  <!-- Hero -->
-  <div class="card hero" id="hero" data-overall="{{ data.PERCENTAGE if 'PERCENTAGE' in data else '' }}">
-    <div>
-      <h2 style="font:var(--text-h1);margin:0 0 5px">Attendance Overview</h2>
-      <p class="hero-sub" id="hero-sub">{{ data.PERCENTAGE if 'PERCENTAGE' in data else 'Overall attendance status' }}</p>
-      <p class="sync-note">Last synced just now · <a href="/" style="color:var(--brand-primary)">Refresh</a></p>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+<!-- LEFT -->
+<section class="lg:col-span-5 flex flex-col gap-6">
+  <div class="bg-stark-white border-4 border-pure-black p-6 shadow-[6px_6px_0px_#0E0E0D] relative rise" id="aggregate" data-overall="{{ data.PERCENTAGE if 'PERCENTAGE' in data else '' }}" data-total="{{ data.TOTAL if 'TOTAL' in data else '' }}">
+    <div class="bg-concrete-gray border-b-2 border-pure-black -mx-6 -mt-6 p-2 px-4 mb-5 flex justify-between items-center">
+      <span class="font-label-sm text-label-sm font-bold uppercase tracking-wider flex items-center gap-1.5"><span class="w-2 h-2 bg-pure-black"></span> AGGREGATE ATTENDANCE ENGINE</span>
+      <span class="font-label-sm text-label-sm bg-pure-black text-stark-white px-2">REALTIME</span>
     </div>
-    <div style="display:flex;align-items:center;gap:16px">
-      <svg class="ring" width="96" height="96" viewBox="0 0 96 96" aria-hidden="true">
-        <circle class="bg" cx="48" cy="48" r="40" fill="none" stroke-width="10"/>
-        <circle class="fg" id="hero-ring" cx="48" cy="48" r="40" fill="none" stroke="#34d399" stroke-width="10" stroke-linecap="round" stroke-dasharray="251.3" stroke-dashoffset="251.3"/>
-      </svg>
-      <div style="text-align:right">
-        <div class="hero-num num" id="hero-num" data-target="{{ data.PERCENTAGE if 'PERCENTAGE' in data else '0' }}">0%</div>
-        <p class="hero-sub">Overall</p>
+    <div class="flex items-baseline justify-between mb-4">
+      <div>
+        <div class="font-label-md text-label-md uppercase font-bold text-on-surface-variant">NET SEMESTER QUOTIENT</div>
+        <div class="font-headline-xl text-headline-xl font-bold tracking-tight leading-none mt-1 tabular" id="agg-pct">{{ data.PERCENTAGE if 'PERCENTAGE' in data else '—' }}</div>
+      </div>
+      <div class="bg-hacker-cyan border-2 border-pure-black px-3 py-1.5 text-right shadow-[3px_3px_0px_#0E0E0D]">
+        <div class="font-label-sm text-label-sm font-bold uppercase" id="agg-buffer">— BUFFER</div>
+        <div class="font-label-md text-label-md font-bold uppercase" id="agg-bank">— PASSES LEFT</div>
       </div>
     </div>
-  </div>
-  <div id="perfect" class="card state-card gold" style="display:none">
-    <div class="big">🎉</div><strong>100% — flawless.</strong> <span class="hero-sub">Screenshot it.</span>
+    <div class="space-y-1.5 my-5">
+      <div class="flex justify-between font-label-sm text-label-sm uppercase font-bold">
+        <span class="text-error">0% EXPELLED</span><span class="bg-pure-black text-stark-white px-1">75% MIN CUTOFF</span><span class="text-primary">100% NERD</span>
+      </div>
+      <div class="w-full h-8 bg-surface-container-highest border-2 border-pure-black p-1 flex relative">
+        <div class="absolute left-3/4 top-0 bottom-0 w-1 bg-pure-black z-20" title="75% Hard Requirement"></div>
+        <div id="agg-bar" class="h-full bg-acid-yellow border-r-2 border-pure-black flex items-center justify-end pr-2 text-pure-black font-label-sm text-label-sm font-bold tabular" style="width:0%">—</div>
+      </div>
+      <div class="flex justify-between font-label-sm text-label-sm text-on-surface-variant"><span>CRITICAL FLOOR</span><span id="agg-headroom">BUFFER HEADROOM: —</span><span>CEILING</span></div>
+    </div>
+    <div class="p-3 bg-surface-container-low border-2 border-pure-black font-body-sm text-body-sm mt-4">
+      <p class="font-bold mb-1 uppercase flex items-center gap-1"><span class="material-symbols-outlined text-sm">warning</span> Advisory Policy:</p>
+      <span id="agg-advice">Christ University mandates &gt;= 75.0% across all credited lectures.</span>
+    </div>
   </div>
 
-  <!-- Leave impact -->
-  {% if leave_impact %}
-  <div class="card" style="border:2px solid {% if leave_impact.is_allowed %}var(--status-safe){% else %}var(--status-danger){% endif %}">
-    <div class="verdict {% if leave_impact.is_allowed %}allowed{% else %}denied{% endif %}">
-      <i class="fa-solid {% if leave_impact.is_allowed %}fa-circle-check{% else %}fa-circle-xmark{% endif %}"></i>
-      {{ leave_impact.day }} — {% if leave_impact.is_allowed %}ALLOWED{% else %}NOT ALLOWED{% endif %}
+  <div class="grid grid-cols-3 gap-3">
+    <div class="bg-stark-white border-2 border-pure-black p-3 shadow-[4px_4px_0px_#0E0E0D]">
+      <div class="font-label-sm text-label-sm uppercase font-bold text-on-surface-variant">CONDUCTED</div>
+      <div class="font-headline-md text-headline-md font-bold mt-1 tabular" id="stat-total">—</div>
+      <div class="font-label-sm text-label-sm text-on-surface-variant mt-1">TOTAL SLOTS</div>
     </div>
+    <div class="bg-stark-white border-2 border-pure-black p-3 shadow-[4px_4px_0px_#0E0E0D]">
+      <div class="font-label-sm text-label-sm uppercase font-bold text-on-surface-variant">ATTENDED</div>
+      <div class="font-headline-md text-headline-md font-bold mt-1 tabular" id="stat-att">—</div>
+      <div class="font-label-sm text-label-sm text-on-surface-variant mt-1">VERIFIED PRESENCE</div>
+    </div>
+    <div class="bg-electric-magenta text-stark-white border-2 border-pure-black p-3 shadow-[4px_4px_0px_#0E0E0D] transform rotate-1 hover:rotate-0 transition-transform">
+      <div class="font-label-sm text-label-sm uppercase font-bold">BUNK BANK</div>
+      <div class="font-headline-md text-headline-md font-bold mt-1 tabular" id="stat-bank">—</div>
+      <div class="font-label-sm text-label-sm font-bold mt-1 bg-pure-black px-1 text-acid-yellow inline-block">UNSPENT TOKENS</div>
+    </div>
+  </div>
+
+  <div class="bg-stark-white border-4 border-pure-black p-6 shadow-[6px_6px_0px_#0E0E0D]" id="sandbox">
+    <div class="flex items-center justify-between border-b-2 border-pure-black pb-3 mb-4">
+      <div class="flex items-center gap-2"><span class="material-symbols-outlined font-bold">calculate</span>
+        <h2 class="font-headline-sm text-headline-sm font-bold uppercase tracking-tight">WHAT-IF SIMULATOR</h2></div>
+      <span class="bg-acid-yellow text-pure-black font-label-sm text-label-sm px-2 py-0.5 border border-pure-black font-bold">SANDBOX v1.4</span>
+    </div>
+    <p class="font-body-sm text-body-sm text-on-surface-variant mb-4">Toggle planned absence vectors → compute aggregate degradation (real backend).</p>
+    <form method="POST" action="/simulate_bunking">
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+        {% for day in safe_days.keys() %}
+        <label class="cursor-pointer">
+          <input type="checkbox" name="days" value="{{ day }}" class="peer hidden" {% if simulated_days and day in simulated_days %}checked{% endif %}/>
+          <span class="block border-2 border-pure-black p-2 bg-surface-container-low font-label-sm text-label-sm font-bold uppercase text-center shadow-[2px_2px_0px_#0E0E0D] peer-checked:bg-electric-magenta peer-checked:text-stark-white transition-all">{{ day[:3]|upper }}<span class="block font-label-md text-label-md font-bold mt-1">{{ safe_days[day].classes|length }} SLOTS</span></span>
+        </label>
+        {% endfor %}
+      </div>
+      <button class="w-full bg-acid-yellow text-pure-black border-2 border-pure-black py-2.5 font-headline-sm text-headline-sm uppercase font-bold shadow-[4px_4px_0px_#0E0E0D] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_#0E0E0D] active:translate-x-0.5 active:translate-y-0.5 transition-all mb-4">COMPUTE SIMULATION ↵</button>
+    </form>
+    {% if simulated_attendance %}
+    <div class="bg-surface-container border-2 border-pure-black p-3 font-body-sm text-body-sm space-y-2">
+      <div class="flex justify-between items-center">
+        <span class="font-label-md text-label-md uppercase font-bold">SIM_RESULT: {{ simulated_days|join(', ')|upper }}</span>
+        <span class="font-label-sm text-label-sm font-bold bg-pure-black text-acid-yellow px-2 border border-pure-black">PROJECTED ↓</span>
+      </div>
+      <div class="border-t border-pure-black pt-2 space-y-1 max-h-56 overflow-auto">
+        {% for subject, info in simulated_attendance.items() %}
+        {% if subject not in ['TOTAL','PERCENTAGE'] and info is mapping %}
+        <div class="flex justify-between gap-2 font-label-md text-label-md"><span class="truncate">{{ subject }}</span><span class="tabular font-bold shrink-0">{{ info.raw }}</span></div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <div class="bg-surface-container border-2 border-pure-black p-3 font-body-sm text-body-sm">
+      <span class="font-bold">STATUS: IDLE</span> — pick days above, hit compute. Nothing bunked yet.
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<!-- RIGHT -->
+<section class="lg:col-span-7 flex flex-col gap-6">
+  <div id="verdict" class="border-4 border-pure-black p-6 shadow-[6px_6px_0px_#0E0E0D] relative overflow-hidden {% if leave_impact and not leave_impact.is_allowed %}bg-error-container{% elif leave_impact %}bg-acid-yellow{% else %}bg-stark-white{% endif %}">
+    {% if leave_impact %}
+    <div class="absolute -right-4 -top-4 bg-pure-black text-stark-white px-6 py-2 rotate-12 border-2 border-stark-white font-label-sm text-label-sm uppercase font-bold shadow-md">{% if leave_impact.is_allowed %}AUTHORIZED DISCRETION{% else %}DENIED · DEFICIT RISK{% endif %}</div>
+    <div class="flex items-center gap-2 font-label-sm text-label-sm uppercase tracking-widest font-bold mb-1"><span class="material-symbols-outlined text-base">verified</span> TACTICAL DIRECTIVE</div>
+    <h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg font-bold uppercase tracking-tight mb-4">VERDICT: {% if leave_impact.is_allowed %}SAFE TO BUNK {{ leave_impact.day|upper }}{% else %}DO NOT BUNK {{ leave_impact.day|upper }}{% endif %}</h2>
+    {% if leave_impact.projected %}<p class="font-body-sm text-body-sm mb-3 opacity-80">PROJECTED — assumes you attend every class till then. Bunk earlier and this changes.</p>{% endif %}
     {% if leave_impact.overall_impact %}
-    <div class="stat3">
-      <div><div class="v num">{{ leave_impact.overall_impact.current }}%</div><div class="l">Current</div></div>
-      <div><div class="v num" style="color:var(--status-danger)">-{{ leave_impact.overall_impact.loss }}%</div><div class="l">Loss</div></div>
-      <div class="stat-after"><div class="v num" style="color:{% if leave_impact.overall_impact.after_leave >= 75 %}var(--status-safe){% else %}var(--status-danger){% endif %}">{{ leave_impact.overall_impact.after_leave }}%</div><div class="l">After leave (answer)</div></div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-stark-white border-2 border-pure-black p-3 shadow-[4px_4px_0px_#0E0E0D]">
+      <div class="border-2 border-pure-black p-3 bg-surface-container-low text-center">
+        <div class="font-label-sm text-label-sm uppercase text-on-surface-variant font-bold">CURRENT LEVEL</div>
+        <div class="font-headline-md text-headline-md font-bold mt-1 tabular">{{ leave_impact.overall_impact.current }}%</div><div class="font-label-sm text-label-sm text-on-surface-variant">Baseline</div>
+      </div>
+      <div class="border-2 border-pure-black p-3 bg-surface-container-low text-center">
+        <div class="font-label-sm text-label-sm uppercase text-error font-bold">PREDICTED LOSS</div>
+        <div class="font-headline-md text-headline-md font-bold text-error mt-1 tabular">-{{ leave_impact.overall_impact.loss }}%</div>
+        <div class="font-label-sm text-label-sm text-error">{{ leave_impact.subjects_affected|length }} subjects hit</div>
+      </div>
+      <div class="border-2 border-pure-black p-3 {% if leave_impact.is_allowed %}bg-tertiary-fixed{% else %}bg-error text-stark-white{% endif %} text-center">
+        <div class="font-label-sm text-label-sm uppercase font-bold">POST-BUNK RESULT</div>
+        <div class="font-headline-md text-headline-md font-bold mt-1 tabular">{{ leave_impact.overall_impact.after_leave }}%</div>
+        <div class="font-label-sm text-label-sm font-bold uppercase">{% if leave_impact.is_allowed %}ABOVE MIN ✓{% else %}BELOW MIN ✗{% endif %}</div>
+      </div>
     </div>
     {% endif %}
     {% if leave_impact.subjects_below_75 %}
-    <div class="flash danger"><i class="fa-solid fa-triangle-exclamation"></i> Below 75%: {{ leave_impact.subjects_below_75 | join(', ') }}</div>
+    <div class="mt-3 bg-pure-black text-stark-white border-2 border-pure-black p-2 font-label-md text-label-md uppercase font-bold">⚠ BELOW 75%: {{ leave_impact.subjects_below_75|join(' · ') }}</div>
     {% endif %}
     {% if leave_impact.subjects_affected %}
-    <h4 style="font:var(--text-h2);margin:20px 0 10px">Subject-wise impact</h4>
-    <div style="overflow-x:auto"><table>
-      <thead><tr><th>Subject</th><th>Current</th><th>After</th><th>Loss</th><th>Status</th></tr></thead>
-      <tbody>
-      {% for s in leave_impact.subjects_affected %}
-        <tr class="{% if s.below_threshold %}row-danger{% endif %}">
-          <td>{{ s.subject }}</td>
-          <td class="num">{{ s.current_attendance }}</td>
-          <td class="num" style="{% if s.below_threshold %}color:var(--status-danger);font-weight:600{% endif %}">{{ s.after_leave }}</td>
-          <td class="num" style="color:var(--status-danger);font-weight:600">-{{ s.percent_loss }}%</td>
-          <td>{% if s.below_threshold %}<span class="pill pill-danger"><i class="dot"></i>Below 75%</span>{% else %}<span class="pill pill-safe"><i class="dot"></i>Safe</span>{% endif %}</td>
+    <div class="mt-3 bg-stark-white border-2 border-pure-black overflow-x-auto">
+      <table class="w-full font-body-sm text-body-sm">
+        <thead><tr class="bg-pure-black text-stark-white font-label-sm text-label-sm uppercase"><th class="text-left p-2">Subject</th><th class="p-2">Current</th><th class="p-2">After</th><th class="p-2">Loss</th><th class="p-2">Status</th></tr></thead>
+        <tbody>
+        {% for s in leave_impact.subjects_affected %}
+        <tr class="border-t-2 border-pure-black {% if s.below_threshold %}bg-error-container font-bold{% endif %}">
+          <td class="p-2">{{ s.subject }}</td><td class="p-2 text-center tabular">{{ s.current_attendance }}</td>
+          <td class="p-2 text-center tabular">{{ s.after_leave }}</td><td class="p-2 text-center tabular text-error">-{{ s.percent_loss }}%</td>
+          <td class="p-2 text-center"><span class="font-label-sm text-label-sm px-2 py-0.5 border border-pure-black font-bold {% if s.below_threshold %}bg-error text-stark-white{% else %}bg-hacker-cyan{% endif %}">{% if s.below_threshold %}BELOW ✗{% else %}SAFE ✓{% endif %}</span></td>
         </tr>
-      {% endfor %}
-      </tbody>
-    </table></div>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% endif %}
+    {% else %}
+    <div class="flex items-center gap-2 font-label-sm text-label-sm uppercase tracking-widest font-bold mb-1"><span class="material-symbols-outlined text-base">verified</span> TACTICAL DIRECTIVE</div>
+    <h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg font-bold uppercase tracking-tight mb-2">PICK A DAY.<br/>GET A VERDICT.</h2>
+    <p class="font-body-md text-body-md">Tap any day in the planner below — instant before/after math vs the 75% floor.</p>
+    {% endif %}
+  </div>
+
+  {% if cal %}
+  <div class="bg-stark-white border-4 border-pure-black p-6 shadow-[6px_6px_0px_#0E0E0D]" id="planner">
+    <div class="flex items-center justify-between border-b-2 border-pure-black pb-3 mb-5 flex-wrap gap-2">
+      <div><h2 class="font-headline-sm text-headline-sm font-bold uppercase tracking-tight">{{ cal.title }}</h2>
+      <p class="font-body-sm text-body-sm text-on-surface-variant">Tap a date → verdict assumes you attend every class till then</p></div>
+      <div class="flex items-center gap-2 font-label-sm text-label-sm font-bold">
+        <a href="/dashboard?month={{ cal.prev }}" class="border-2 border-pure-black px-2 py-1 hover:bg-acid-yellow">‹ PREV</a>
+        <a href="/dashboard?month={{ cal.next }}" class="border-2 border-pure-black px-2 py-1 hover:bg-acid-yellow">NEXT ›</a>
+      </div>
+    </div>
+    <div class="flex items-center gap-1 font-label-sm text-label-sm font-bold mb-3"><span class="w-3 h-3 bg-hacker-cyan border border-pure-black"></span> SAFE <span class="w-3 h-3 bg-acid-yellow border border-pure-black ml-2"></span> RISK <span class="w-3 h-3 bg-surface-dim border border-pure-black ml-2"></span> REST/PAST</div>
+    <div class="grid grid-cols-7 gap-2">
+      {% for w in ['M','T','W','T','F','S','S'] %}<div class="text-center font-label-sm text-label-sm font-bold opacity-60">{{ w }}</div>{% endfor %}
+      {% for week in cal.weeks %}
+      {% for d in week %}
+      {% if not d %}<div></div>
+      {% elif d.past or not d.has_classes %}
+      <div class="border-2 border-pure-black p-2 bg-surface-dim opacity-60 text-center">
+        <div class="font-headline-sm text-headline-sm font-bold">{{ d.num }}</div>
+        <div class="font-label-sm text-label-sm">{% if not d.has_classes and not d.past %}REST{% endif %}</div>
+      </div>
+      {% else %}
+      <a href="/calculate_date/{{ d.iso }}" class="border-2 border-pure-black p-2 flex flex-col justify-between hover:-translate-y-1 transition-transform shadow-[3px_3px_0px_#0E0E0D] {% if selected_date == d.iso %}bg-electric-magenta text-stark-white{% elif d.allowed %}bg-surface-container-low{% else %}bg-acid-yellow/20{% endif %}">
+        <div class="font-headline-sm text-headline-sm font-bold">{{ d.num }}{% if d.today %} •{% endif %}</div>
+        <div class="font-label-sm text-label-sm font-bold mt-1">{% if selected_date == d.iso %}★{% elif d.allowed %}✓{% else %}!{% endif %} {{ d.count }} CLS</div>
+      </a>
+      {% endif %}
+      {% endfor %}
+      {% endfor %}
+    </div>
   </div>
   {% endif %}
 
-  <!-- Simulate result -->
-  {% if simulated_attendance %}
-  <div class="card" style="border:2px dashed var(--brand-primary)">
-    <div class="card-header"><i class="fa-solid fa-flask"></i> What-if: bunking {{ simulated_days | join(', ') }}</div>
-    <div class="grid-subjects stagger" style="margin-bottom:0">
-      {% for subject, info in simulated_attendance.items() %}
-      {% if subject != 'TOTAL' and subject != 'PERCENTAGE' and info is mapping %}
-      <div class="card card-hover" style="margin:0">
-        <div class="card-header">{{ subject }}</div>
-        <div class="num" data-raw="{{ info.raw }}" style="font-size:22px;font-weight:600;text-align:center;margin:10px 0">{{ info.raw }}</div>
-        <div class="bar" data-bar><i></i></div>
-        <div style="text-align:center;margin-top:8px"><span>{{ info.status }}</span></div>
+  <div class="bg-stark-white border-4 border-pure-black p-6 shadow-[6px_6px_0px_#0E0E0D]" id="ledger">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b-2 border-pure-black pb-4 mb-4 gap-3">
+      <div><h2 class="font-headline-sm text-headline-sm font-bold uppercase tracking-tight">ATTENDANCE LEDGER // COURSES</h2>
+      <p class="font-body-sm text-body-sm text-on-surface-variant">Headroom vs 75.0% · <span class="tabular font-bold">{{ data.PERCENTAGE if 'PERCENTAGE' in data else '' }}</span> overall</p></div>
+      <div class="flex border-2 border-pure-black font-label-sm text-label-sm font-bold">
+        <button id="v-cards" class="bg-acid-yellow px-3 py-1 border-r-2 border-pure-black uppercase">CARDS VIEW</button>
+        <button id="v-table" class="bg-stark-white px-3 py-1 uppercase hover:bg-surface-container">TABLE MATRIX</button>
+      </div>
+    </div>
+    {% if unmatched %}
+    <div class="bg-error-container border-2 border-error p-3 mb-4 font-body-sm text-body-sm"><span class="font-bold uppercase">UNMAPPED — excluded from verdicts:</span> {{ unmatched|join(', ') }}
+      <form method="POST" action="/confirm_mapping" class="mt-2 space-y-2">
+        {% for header in unmatched %}
+        <div class="flex flex-col sm:flex-row gap-2 items-stretch">
+          <span class="font-label-md text-label-md font-bold sm:w-1/2">{{ header }}</span>
+          <select name="{{ header }}" class="flex-1 border-2 border-pure-black bg-stark-white px-2 py-1 font-body-sm text-body-sm rounded-none">
+            <option value="">-- skip --</option>
+            {% for sub in timetable_subjects %}<option value="{{ sub.course_code or sub.course_name }}">{% if sub.course_code %}{{ sub.course_code }} - {{ sub.course_name }}{% else %}{{ sub.course_name }}{% endif %}</option>{% endfor %}
+          </select>
+        </div>
+        {% endfor %}
+        <button class="bg-pure-black text-stark-white border-2 border-pure-black px-3 py-1 font-label-md text-label-md font-bold uppercase">SAVE MAPPING</button>
+      </form>
+    </div>
+    {% endif %}
+    <div class="space-y-4" id="subject-cards">
+      {% for subject, info in data.items() %}
+      {% if subject not in ['TOTAL','PERCENTAGE'] and info is mapping %}
+      <div class="subj border-2 border-pure-black p-4 bg-surface-container-lowest shadow-[4px_4px_0px_#0E0E0D] hover:bg-surface-container-low transition-colors" data-raw="{{ info.raw }}">
+        <div class="flex flex-col md:flex-row justify-between md:items-center gap-2 mb-3">
+          <div>
+            <div class="flex items-center gap-2 flex-wrap"><span class="bg-pure-black text-stark-white font-label-sm text-label-sm px-2 py-0.5 font-bold">{{ subject.split(' ')[0][:8] }}</span>
+              <h3 class="font-headline-sm text-headline-sm font-bold uppercase">{{ subject }}</h3></div>
+            <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5 tabular" data-rawline>{{ info.raw }}</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span data-pill class="border-2 border-pure-black px-3 py-1 font-label-sm text-label-sm font-bold shadow-[2px_2px_0px_#0E0E0D] bg-hacker-cyan">{{ info.status }}</span>
+            <div class="font-headline-md text-headline-md font-bold tabular" data-pct>—</div>
+          </div>
+        </div>
+        <div class="w-full bg-surface-container-highest h-3 border-2 border-pure-black mb-2"><div data-bar class="bg-primary h-full" style="width:0%"></div></div>
+        <div class="flex justify-between items-center font-label-sm text-label-sm text-on-surface-variant pt-1 flex-wrap gap-2">
+          <span data-floor>Floor: 75%</span>
+          <div class="flex gap-2"><a href="#sandbox" class="underline font-bold text-pure-black hover:text-primary">SIMULATE SKIP</a><span>·</span><a href="#planner" class="underline font-bold text-pure-black hover:text-primary">VIEW PLAN</a></div>
+        </div>
       </div>
       {% endif %}
       {% endfor %}
     </div>
-  </div>
-  {% endif %}
-
-  <!-- Safe days -->
-  {% if safe_days %}
-  <div class="card">
-    <div class="card-header"><i class="fa-solid fa-calendar-check"></i> Safe days — tap to calculate impact</div>
-    <div class="grid-days stagger">
-      {% for day, info in safe_days.items() %}
-      <a href="/calculate_leave/{{ day }}" class="day-card {% if not info.classes %}rest{% elif info.is_safe %}safe{% else %}risky{% endif %} {% if selected_day == day %}selected{% endif %}">
-        <div class="day-top">
-          <h4 style="font-size:16px;font-weight:600;margin:0">{{ day }}</h4>
-          {% if not info.classes %}<i class="fa-solid fa-mug-saucer" style="color:var(--text-tertiary)"></i>
-          {% elif info.is_safe %}<i class="fa-solid fa-circle-check" style="color:var(--status-safe);font-size:20px"></i>
-          {% else %}<i class="fa-solid fa-triangle-exclamation" style="color:var(--status-danger);font-size:20px"></i>{% endif %}
-        </div>
-        {% if info.classes %}
-        <div class="day-classes"><strong>Classes:</strong>{% for cls in info.classes %}<span style="display:block;margin-top:3px">• {{ cls }}</span>{% endfor %}</div>
-        {% else %}<div class="day-classes">No classes — rest day.</div>{% endif %}
-        <div class="day-reason">{% for reason in info.reason %}<span style="display:block;margin-top:3px">{{ reason }}</span>{% endfor %}</div>
-        <div class="day-cta"><i class="fa-solid fa-calculator"></i> Calculate impact</div>
-      </a>
-      {% endfor %}
+    <div id="subject-table" class="hidden overflow-x-auto border-2 border-pure-black">
+      <table class="w-full font-body-sm text-body-sm">
+        <thead><tr class="bg-pure-black text-stark-white font-label-sm text-label-sm uppercase"><th class="text-left p-2">Subject</th><th class="p-2">Raw</th><th class="p-2">%</th><th class="p-2">Status</th></tr></thead>
+        <tbody>
+        {% for subject, info in data.items() %}
+        {% if subject not in ['TOTAL','PERCENTAGE'] and info is mapping %}
+        <tr class="subj border-t-2 border-pure-black" data-raw="{{ info.raw }}"><td class="p-2 font-bold">{{ subject }}</td><td class="p-2 tabular">{{ info.raw }}</td><td class="p-2 tabular font-bold" data-pct>—</td><td class="p-2"><span data-pill class="font-label-sm text-label-sm font-bold">{{ info.status }}</span></td></tr>
+        {% endif %}
+        {% endfor %}
+        </tbody>
+      </table>
     </div>
-
-    <!-- Simulate planner -->
-    <form class="sim-box" method="POST" action="/simulate_bunking">
-      <strong><i class="fa-solid fa-wand-magic-sparkles"></i> Plan multiple days →</strong>
-      <span class="sync-note">pick days, see projected attendance</span>
-      <div class="sim-pick">
-        {% for day in safe_days.keys() %}
-        <label class="chk"><input type="checkbox" name="days" value="{{ day }}" {% if simulated_days and day in simulated_days %}checked{% endif %}><span>{{ day }}</span></label>
-        {% endfor %}
-      </div>
-      <button class="btn-sm" style="width:auto" type="submit">Simulate bunking</button>
-    </form>
-  </div>
-  {% endif %}
-
-  <!-- Subject mapping -->
-  {% if subject_map or unmatched %}
-  <div class="card">
-    <div class="card-header"><i class="fa-solid fa-link"></i> Subject mapping</div>
-    {% if unmatched %}
-    <div class="flash danger"><i class="fa-solid fa-triangle-exclamation"></i> Unmapped — excluded from verdicts: {{ unmatched | join(', ') }}</div>
-    <form method="POST" action="/confirm_mapping">
-      {% for header in unmatched %}
-      <div style="margin-bottom:12px">
-        <label style="display:block;margin-bottom:5px;font-size:14px">{{ header }}</label>
-        <select name="{{ header }}" class="map-pick" style="width:100%;padding:10px;border-radius:8px">
-          <option value="">-- skip --</option>
-          {% for sub in timetable_subjects %}
-          <option value="{{ sub.course_code or sub.course_name }}">{% if sub.course_code %}{{ sub.course_code }} - {{ sub.course_name }}{% else %}{{ sub.course_name }}{% endif %}</option>
-          {% endfor %}
-        </select>
-      </div>
-      {% endfor %}
-      <button class="btn-sm" style="width:auto" type="submit">Save mapping</button>
-    </form>
-    {% endif %}
     {% if subject_map %}
-    <details style="margin-top:15px">
-      <summary style="cursor:pointer;font-size:14px;opacity:0.8">Auto mappings ({{ subject_map|length }})</summary>
-      <ul style="margin-top:10px;padding-left:20px;font-size:13px;opacity:0.8">
-        {% for header, m in subject_map.items() %}
-        <li style="margin:4px 0">{{ header }} → <strong>{{ m.key }}</strong> ({{ m.method }})</li>
-        {% endfor %}
-      </ul>
+    <details class="mt-4"><summary class="cursor-pointer font-label-md text-label-md font-bold uppercase">Auto mappings ({{ subject_map|length }})</summary>
+      <ul class="mt-2 font-body-sm text-body-sm">{% for header, m in subject_map.items() %}<li>{{ header }} → <strong>{{ m.key }}</strong> ({{ m.method }})</li>{% endfor %}</ul>
     </details>
     {% endif %}
   </div>
-  {% endif %}
-
-  <!-- Subjects -->
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h3 class="section-title" style="margin:0"><i class="fa-solid fa-book-open"></i> Subject-wise attendance</h3>
-    <div class="view-toggle">
-      <button class="icon-btn active" id="v-cards" title="Cards"><i class="fa-solid fa-grip"></i></button>
-      <button class="icon-btn" id="v-table" title="Table"><i class="fa-solid fa-table-list"></i></button>
-    </div>
-  </div>
-
-  <div class="grid-subjects stagger" id="subject-cards">
-    {% for subject, info in data.items() %}
-    {% if subject != 'TOTAL' and subject != 'PERCENTAGE' and info is mapping %}
-    <div class="card card-hover subj" data-raw="{{ info.raw }}">
-      <div class="card-header">{{ subject }}</div>
-      <div class="bar" data-bar><i></i></div>
-      <div class="bar-cap num">{{ info.raw }}</div>
-      <div style="margin-top:10px"><span class="pill" data-pill>{{ info.status }}</span></div>
-      <div class="sync-note" data-action style="margin-top:6px">{{ info.status }}</div>
-    </div>
-    {% endif %}
-    {% endfor %}
-  </div>
-
-  <div class="card" id="subject-table" style="display:none">
-    <div class="card-header">Detailed report</div>
-    <table>
-      <thead><tr><th>Subject</th><th>Attendance</th><th>Status</th></tr></thead>
-      <tbody>
-      {% for subject, info in data.items() %}
-        <tr class="subj" data-raw="{{ info.raw if info is mapping else info }}">
-          <td>{{ subject }}</td>
-          <td class="num">{{ info.raw if info is mapping else info }}</td>
-          <td>{% if info is mapping and info.status %}<span class="pill" data-pill>{{ info.status }}</span>{% endif %}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
+</section>
 </div>
-
-<!-- Sticky mobile bar -->
-<div class="sticky-bar" id="sticky">
-  <span class="num" id="sticky-num" style="font-weight:700"></span>
-  <a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false" style="text-decoration:none"><button class="btn-sm">Plan a bunk</button></a>
-</div>
-
+{% endif %}
+{% endblock %}
+{% block scripts %}
 <script>
 (function(){
   function pct(s){var m=/\((\d+(?:\.\d+)?)%\)/.exec(s||'');if(m)return parseFloat(m[1]);m=/(\d+(?:\.\d+)?)\s*%/.exec(s||'');return m?parseFloat(m[1]):NaN;}
-  function tier(p){return isNaN(p)?'neutral':p<75?'danger':p<=80?'caution':'safe';}
-  // Hero
-  var hero=document.getElementById('hero');
-  if(hero){
-    var p=pct(hero.dataset.overall),t=tier(p);
-    var num=document.getElementById('hero-num'),ring=document.getElementById('hero-ring'),sub=document.getElementById('hero-sub'),C=251.3;
-    var col=t==='danger'?'#fb7185':t==='caution'?'#fbbf24':'#34d399';
-    num.classList.add(t);ring.setAttribute('stroke',col);
-    requestAnimationFrame(function(){ring.style.strokeDashoffset=isNaN(p)?C:C*(1-Math.min(p,100)/100);});
+  function attTot(s){var m=/(\d+)\s*\/\s*(\d+)/.exec(s||'');return m?{a:+m[1],t:+m[2]}:null;}
+  // Aggregate hero math
+  var agg=document.getElementById('aggregate');
+  if(agg){
+    var p=pct(agg.dataset.overall), tt=attTot(agg.dataset.total)||attTot(document.getElementById('stat-total')?'':'');
+    var tot=attTot(agg.dataset.total);
+    if(tot){
+      document.getElementById('stat-total').textContent=tot.t;
+      document.getElementById('stat-att').textContent=tot.a;
+      var bank=Math.max(0,Math.floor(tot.a/0.75-tot.t));
+      document.getElementById('stat-bank').textContent=bank+' LEC';
+      document.getElementById('agg-bank').textContent=bank+' PASSES LEFT';
+    } else if(!isNaN(p)){
+      var bank2=Math.max(0,Math.floor(p*1.42/100*0)); // unknown totals
+      document.getElementById('agg-bank').textContent='— PASSES LEFT';
+    }
     if(!isNaN(p)){
-      var diff=(p-75).toFixed(1);
-      sub.textContent=(p>=75?diff+'% above the 75% cutoff':Math.abs(diff)+'% below cutoff — action needed')+' · '+hero.dataset.overall;
-      // count-up
-      var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches,t0=null;
-      function tick(ts){if(reduce){num.textContent=p+'%';return;}if(!t0)t0=ts;var k=Math.min((ts-t0)/600,1);num.textContent=(p*k).toFixed(k<1?1:0)+'%';if(k<1)requestAnimationFrame(tick);}
-      requestAnimationFrame(tick);
-      if(p===100)document.getElementById('perfect').style.display='block';
-      document.getElementById('sticky-num').textContent=p+'% overall';
+      var buf=(p-75).toFixed(1);
+      document.getElementById('agg-buffer').textContent=(p>=75?'+'+buf:'−'+Math.abs(buf))+'% BUFFER';
+      document.getElementById('agg-headroom').textContent='BUFFER HEADROOM: '+buf+'%';
+      var bar=document.getElementById('agg-bar'); bar.style.width=Math.min(p,100)+'%'; bar.textContent=p+'%';
+      bar.className='h-full border-r-2 border-pure-black flex items-center justify-end pr-2 text-pure-black font-label-sm text-label-sm font-bold tabular '+(p<75?'bg-error text-stark-white':p<=80?'bg-acid-yellow':'bg-acid-yellow');
+      document.getElementById('agg-advice').textContent=p>=80?'Academic headroom is optimal. Hall ticket clearance confirmed at current velocity.':p>=75?'Headroom thin. One bad week drops you below the 75% floor. Pick safe days only.':'BELOW FLOOR. Attend everything until back above 75%. Thursday labs first.';
     }
   }
-  // Subject bars + pills (3-tier, replaces emoji-in-text)
+  // Subject tiers: <75 deficit red, 75-80 caution yellow, >80 safe cyan
   document.querySelectorAll('.subj').forEach(function(el){
-    var raw=el.dataset.raw,p=pct(raw),t=tier(p);
-    var bar=el.querySelector('[data-bar]');if(bar&&!isNaN(p)){bar.classList.add(t==='safe'?'':t);bar.firstElementChild.style.width=Math.min(p,100)+'%';}
-    var pill=el.querySelector('[data-pill]');
+    var raw=el.dataset.raw, p=pct(raw), pill=el.querySelector('[data-pill]'), bar=el.querySelector('[data-bar]'), pctEl=el.querySelector('[data-pct]'), floor=el.querySelector('[data-floor]');
+    var m=/(\d+)\s*\/\s*(\d+)/.exec(raw||'');
+    if(!isNaN(p)&&pctEl)pctEl.textContent=p+'%';
+    if(m&&floor){var a=+m[1],t=+m[2],need=Math.ceil(0.75*t-a>0?(0.75*t-a):0);floor.textContent='Attended: '+a+' / '+t+' (Floor: '+Math.ceil(0.75*t)+'/'+t+')';}
+    if(bar&&!isNaN(p)){bar.style.width=Math.min(p,100)+'%';bar.className=(p<75?'bg-error':p<=80?'bg-acid-yellow':'bg-primary')+' h-full';}
     if(pill){
-      var txt=pill.textContent,m=/bunk (\d+)|attend (\d+)/i.exec(txt);
-      var short=isNaN(p)?txt:p+'%'+(m?(t==='danger'?' · need '+(m[2]||'?'):' · bunk '+(m[1]||'?')):'');
-      pill.innerHTML='<i class="dot"></i>'+short;
-      pill.classList.add(t==='safe'?'pill-safe':t==='caution'?'pill-caution':t==='danger'?'pill-danger':'pill-neutral');
-      var act=el.querySelector('[data-action]');if(act)act.textContent=txt;
+      var txt=pill.textContent, n=/bunk (\d+)|attend (\d+)/i.exec(txt), t=p<75?'DEFICIT':p<=80?'CAUTION':'SAFE';
+      var extra=n?(t==='DEFICIT'?' / ATTEND '+(n[2]||'?')+' NEEDED':t==='CAUTION'?' / BUNK 0':' / BUNK '+(n[1]||'?')):'';
+      // keep short code in table, full badge in cards
+      pill.textContent=(isNaN(p)?txt:t+extra);
+      if(pill.tagName==='SPAN'&&pill.classList.contains('border'))pill.classList.add(p<75?'bg-error':'',p<75?'text-stark-white':'',p<75?'animate-pulse':'',p>=75&&p<=80?'bg-acid-yellow':'',p>80?'bg-hacker-cyan':'');
+      if(p<75){el.classList.add('bg-error-container/40');el.style.borderLeft='8px solid #ba1a1a';}
     }
   });
-  // Cards/Table toggle
-  var c=document.getElementById('subject-cards'),tb=document.getElementById('subject-table'),bc=document.getElementById('v-cards'),bt=document.getElementById('v-table');
-  if(bc&&bt){bc.onclick=function(e){e.preventDefault();c.style.display='';tb.style.display='none';bc.classList.add('active');bt.classList.remove('active');};
-  bt.onclick=function(e){e.preventDefault();c.style.display='none';tb.style.display='';bt.classList.add('active');bc.classList.remove('active');};}
+  var bc=document.getElementById('v-cards'),bt=document.getElementById('v-table'),c=document.getElementById('subject-cards'),tb=document.getElementById('subject-table');
+  if(bc&&bt){bc.onclick=function(e){e.preventDefault();c.classList.remove('hidden');tb.classList.add('hidden');bc.className='bg-acid-yellow px-3 py-1 border-r-2 border-pure-black uppercase';bt.className='bg-stark-white px-3 py-1 uppercase hover:bg-surface-container';};
+  bt.onclick=function(e){e.preventDefault();tb.classList.remove('hidden');c.classList.add('hidden');bt.className='bg-acid-yellow px-3 py-1 border-l-2 border-pure-black uppercase';bc.className='bg-stark-white px-3 py-1 uppercase hover:bg-surface-container';};}
 })();
 </script>
-</body>
-</html>
+{% endblock %}
