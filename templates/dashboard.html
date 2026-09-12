@@ -129,15 +129,20 @@
     <h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg font-bold uppercase tracking-tight mb-4">VERDICT: {% if leave_impact.is_allowed %}SAFE TO BUNK {{ leave_impact.day|upper }}{% else %}DO NOT BUNK {{ leave_impact.day|upper }}{% endif %}</h2>
     {% if leave_impact.projected %}<p class="font-body-sm text-body-sm mb-3 opacity-80">PROJECTED — assumes you attend every class till then. Bunk earlier and this changes.</p>{% endif %}
     {% if leave_impact.overall_impact %}
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-stark-white border-2 border-pure-black p-3 shadow-[4px_4px_0px_#0E0E0D]">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-stark-white border-2 border-pure-black p-3 shadow-[4px_4px_0px_#0E0E0D]">
       <div class="border-2 border-pure-black p-3 bg-surface-container-low text-center">
         <div class="font-label-sm text-label-sm uppercase text-on-surface-variant font-bold">CURRENT LEVEL</div>
         <div class="font-headline-md text-headline-md font-bold mt-1 tabular">{{ leave_impact.overall_impact.current }}%</div><div class="font-label-sm text-label-sm text-on-surface-variant">Baseline</div>
       </div>
       <div class="border-2 border-pure-black p-3 bg-surface-container-low text-center">
-        <div class="font-label-sm text-label-sm uppercase text-error font-bold">PREDICTED LOSS</div>
+        <div class="font-label-sm text-label-sm uppercase text-error font-bold">IF YOU BUNK</div>
         <div class="font-headline-md text-headline-md font-bold text-error mt-1 tabular">-{{ leave_impact.overall_impact.loss }}%</div>
         <div class="font-label-sm text-label-sm text-error">{{ leave_impact.subjects_affected|length }} subjects hit</div>
+      </div>
+      <div class="border-2 border-pure-black p-3 bg-hacker-cyan text-center">
+        <div class="font-label-sm text-label-sm uppercase font-bold text-pure-black">IF YOU ATTEND</div>
+        <div class="font-headline-md text-headline-md font-bold text-pure-black mt-1 tabular">+{{ leave_impact.overall_impact.gain }}%</div>
+        <div class="font-label-sm text-label-sm font-bold text-pure-black">{{ leave_impact.overall_impact.after_attend }}% total</div>
       </div>
       <div class="border-2 border-pure-black p-3 {% if leave_impact.is_allowed %}bg-tertiary-fixed{% else %}bg-error text-stark-white{% endif %} text-center">
         <div class="font-label-sm text-label-sm uppercase font-bold">POST-BUNK RESULT</div>
@@ -151,14 +156,19 @@
     {% endif %}
     {% if leave_impact.subjects_affected %}
     <div class="mt-3 bg-stark-white border-2 border-pure-black overflow-x-auto">
-      <table class="w-full font-body-sm text-body-sm">
-        <thead><tr class="bg-pure-black text-stark-white font-label-sm text-label-sm uppercase"><th class="text-left p-2">Subject</th><th class="p-2">Current</th><th class="p-2">After</th><th class="p-2">Loss</th><th class="p-2">Status</th></tr></thead>
+      <table class="w-full font-body-sm text-body-sm min-w-[600px]">
+        <thead><tr class="bg-pure-black text-stark-white font-label-sm text-label-sm uppercase whitespace-nowrap"><th class="text-left p-2">Subject</th><th class="p-2">Current</th><th class="p-2">After Bunk</th><th class="p-2 text-error">Loss</th><th class="p-2 text-hacker-cyan">Gain</th><th class="p-2">Status</th></tr></thead>
         <tbody>
         {% for s in leave_impact.subjects_affected %}
         <tr class="border-t-2 border-pure-black {% if s.below_threshold %}bg-error-container font-bold{% endif %}">
-          <td class="p-2">{{ s.subject }}</td><td class="p-2 text-center tabular">{{ s.current_attendance }}</td>
-          <td class="p-2 text-center tabular">{{ s.after_leave }}</td><td class="p-2 text-center tabular text-error">-{{ s.percent_loss }}%</td>
-          <td class="p-2 text-center"><span class="font-label-sm text-label-sm px-2 py-0.5 border border-pure-black font-bold {% if s.below_threshold %}bg-error text-stark-white{% else %}bg-hacker-cyan{% endif %}">{% if s.below_threshold %}BELOW ✗{% else %}SAFE ✓{% endif %}</span></td>
+          <td class="p-2">{{ s.subject }}</td>
+          <td class="p-2 text-center tabular">{{ s.current_attendance }}</td>
+          <td class="p-2 text-center tabular">{{ s.after_leave }}</td>
+          <td class="p-2 text-center tabular text-error font-bold whitespace-nowrap">-{{ s.percent_loss }}%</td>
+          <td class="p-2 text-center tabular whitespace-nowrap">
+            <span class="font-bold text-pure-black bg-hacker-cyan px-2 py-0.5 border border-pure-black whitespace-nowrap">+{{ s.percent_gain }}%</span>
+          </td>
+          <td class="p-2 text-center whitespace-nowrap"><span class="font-label-sm text-label-sm px-2 py-0.5 border border-pure-black font-bold whitespace-nowrap {% if s.below_threshold %}bg-error text-stark-white{% else %}bg-hacker-cyan{% endif %}">{% if s.below_threshold %}BELOW ✗{% else %}SAFE ✓{% endif %}</span></td>
         </tr>
         {% endfor %}
         </tbody>
@@ -208,25 +218,33 @@
   <div class="bg-stark-white border-4 border-pure-black p-6 shadow-[6px_6px_0px_#0E0E0D]" id="ledger">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b-2 border-pure-black pb-4 mb-4 gap-3">
       <div><h2 class="font-headline-sm text-headline-sm font-bold uppercase tracking-tight">ATTENDANCE LEDGER // COURSES</h2>
-      <p class="font-body-sm text-body-sm text-on-surface-variant">Headroom vs 75.0% · <span class="tabular font-bold">{{ data.PERCENTAGE if 'PERCENTAGE' in data else '' }}</span> overall</p></div>
+      <p class="font-body-sm text-body-sm text-on-surface-variant">Headroom vs 75.0% · <span class="tabular font-bold">{{ data.PERCENTAGE if 'PERCENTAGE' in data else '' }}</span> overall
+        {% if tt_source == 'cached' %}<span class="ml-2 bg-hacker-cyan border border-pure-black px-1 font-label-sm text-label-sm font-bold">⚡ TT CACHED</span>{% elif tt_source == 'fresh' %}<span class="ml-2 bg-acid-yellow border border-pure-black px-1 font-label-sm text-label-sm font-bold">↻ TT FETCHED</span>{% endif %}
+      </p></div>
       <div class="flex border-2 border-pure-black font-label-sm text-label-sm font-bold">
         <button id="v-cards" class="bg-acid-yellow px-3 py-1 border-r-2 border-pure-black uppercase">CARDS VIEW</button>
         <button id="v-table" class="bg-stark-white px-3 py-1 uppercase hover:bg-surface-container">TABLE MATRIX</button>
       </div>
     </div>
     {% if unmatched %}
-    <div class="bg-error-container border-2 border-error p-3 mb-4 font-body-sm text-body-sm"><span class="font-bold uppercase">UNMAPPED — excluded from verdicts:</span> {{ unmatched|join(', ') }}
-      <form method="POST" action="/confirm_mapping" class="mt-2 space-y-2">
-        {% for header in unmatched %}
-        <div class="flex flex-col sm:flex-row gap-2 items-stretch">
-          <span class="font-label-md text-label-md font-bold sm:w-1/2">{{ header }}</span>
-          <select name="{{ header }}" class="flex-1 border-2 border-pure-black bg-stark-white px-2 py-1 font-body-sm text-body-sm rounded-none">
-            <option value="">-- skip --</option>
-            {% for sub in timetable_subjects %}<option value="{{ sub.course_code or sub.course_name }}">{% if sub.course_code %}{{ sub.course_code }} - {{ sub.course_name }}{% else %}{{ sub.course_name }}{% endif %}</option>{% endfor %}
-          </select>
+    <div class="bg-error-container border-2 border-error p-4 mb-4">
+      <div class="font-body-sm text-body-sm mb-3">
+        <span class="font-bold uppercase text-error">UNMAPPED — EXCLUDED FROM VERDICTS:</span> 
+        {{ unmatched|join(', ') }}
+      </div>
+      <form method="POST" action="/confirm_mapping" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {% for header in unmatched %}
+          <div class="flex flex-col gap-1">
+            <span class="font-label-md text-label-md font-bold truncate" title="{{ header }}">{{ header }}</span>
+            <select name="{{ header }}" class="w-full border-2 border-pure-black bg-stark-white px-2 py-1.5 font-body-sm text-body-sm rounded-none">
+              <option value="">-- skip --</option>
+              {% for sub in timetable_subjects %}<option value="{{ sub.course_code or sub.course_name }}">{% if sub.course_code %}{{ sub.course_code }} - {{ sub.course_name }}{% else %}{{ sub.course_name }}{% endif %}</option>{% endfor %}
+            </select>
+          </div>
+          {% endfor %}
         </div>
-        {% endfor %}
-        <button class="bg-pure-black text-stark-white border-2 border-pure-black px-3 py-1 font-label-md text-label-md font-bold uppercase">SAVE MAPPING</button>
+        <button class="bg-pure-black text-stark-white border-2 border-pure-black px-4 py-2 font-label-md text-label-md font-bold uppercase hover:bg-error transition-colors">SAVE MAPPING</button>
       </form>
     </div>
     {% endif %}
@@ -234,21 +252,30 @@
       {% for subject, info in data.items() %}
       {% if subject not in ['TOTAL','PERCENTAGE'] and info is mapping %}
       <div class="subj border-2 border-pure-black p-4 bg-surface-container-lowest shadow-[4px_4px_0px_#0E0E0D] hover:bg-surface-container-low transition-colors" data-raw="{{ info.raw }}">
-        <div class="flex flex-col md:flex-row justify-between md:items-center gap-2 mb-3">
-          <div>
-            <div class="flex items-center gap-2 flex-wrap"><span class="bg-pure-black text-stark-white font-label-sm text-label-sm px-2 py-0.5 font-bold">{{ subject.split(' ')[0][:8] }}</span>
-              <h3 class="font-headline-sm text-headline-sm font-bold uppercase">{{ display_names.get(subject, subject) }}</h3></div>
-            <div class="font-body-sm text-body-sm text-on-surface-variant mt-0.5 tabular" data-rawline>{{ info.raw }}</div>
+        <div class="flex flex-col gap-3 mb-3">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="bg-pure-black text-stark-white font-label-sm text-label-sm px-2 py-0.5 font-bold">{{ subject.split(' ')[0][:8] }}</span>
+            <h3 class="font-headline-sm text-headline-sm font-bold uppercase">{{ display_names.get(subject, subject) }}</h3>
           </div>
-          <div class="flex items-center gap-2">
-            <span data-pill class="border-2 border-pure-black px-3 py-1 font-label-sm text-label-sm font-bold shadow-[2px_2px_0px_#0E0E0D] bg-hacker-cyan">{{ info.status }}</span>
+          
+          <div class="flex items-center flex-wrap gap-4 bg-stark-white border-2 border-pure-black p-3 shadow-[2px_2px_0px_#0E0E0D]">
             <div class="font-headline-md text-headline-md font-bold tabular" data-pct>—</div>
+            <div class="font-body-md text-body-md font-bold tabular border-l-2 border-pure-black pl-4" data-rawline>{{ info.raw }}</div>
+            <span data-pill class="border-2 border-pure-black px-3 py-1 font-label-sm text-label-sm font-bold bg-hacker-cyan sm:ml-auto">{{ info.status }}</span>
           </div>
         </div>
         <div class="w-full bg-surface-container-highest h-3 border-2 border-pure-black mb-2"><div data-bar class="bg-primary h-full" style="width:0%"></div></div>
         <div class="flex justify-between items-center font-label-sm text-label-sm text-on-surface-variant pt-1 flex-wrap gap-2">
           <span data-floor>Floor: 75%</span>
-          <div class="flex gap-2"><a href="#sandbox" class="underline font-bold text-pure-black hover:text-primary">SIMULATE SKIP</a><span>·</span><a href="#planner" class="underline font-bold text-pure-black hover:text-primary">VIEW PLAN</a></div>
+          <div class="flex gap-2 items-center">
+            <a href="#sandbox" class="underline font-bold text-pure-black hover:text-primary">SIMULATE SKIP</a><span>·</span><a href="#planner" class="underline font-bold text-pure-black hover:text-primary">VIEW PLAN</a>
+            {% if subject_map.get(subject) %}
+            <span>·</span>
+            <form method="POST" action="/remove_mapping/{{ subject }}" class="inline">
+              <button type="submit" class="font-label-sm text-label-sm font-bold text-error border border-error px-1 hover:bg-error hover:text-stark-white transition-colors" title="Remove mapping for {{ subject }}">✕ UNMAP</button>
+            </form>
+            {% endif %}
+          </div>
         </div>
       </div>
       {% endif %}
@@ -256,19 +283,31 @@
     </div>
     <div id="subject-table" class="hidden overflow-x-auto border-2 border-pure-black">
       <table class="w-full font-body-sm text-body-sm">
-        <thead><tr class="bg-pure-black text-stark-white font-label-sm text-label-sm uppercase"><th class="text-left p-2">Subject</th><th class="p-2">Raw</th><th class="p-2">%</th><th class="p-2">Status</th></tr></thead>
+        <thead><tr class="bg-pure-black text-stark-white font-label-sm text-label-sm uppercase"><th class="text-left p-2">Subject</th><th class="p-2">Raw</th><th class="p-2">%</th><th class="p-2">Status</th><th class="p-2"></th></tr></thead>
         <tbody>
         {% for subject, info in data.items() %}
         {% if subject not in ['TOTAL','PERCENTAGE'] and info is mapping %}
-        <tr class="subj border-t-2 border-pure-black" data-raw="{{ info.raw }}"><td class="p-2 font-bold">{{ display_names.get(subject, subject) }}</td><td class="p-2 tabular">{{ info.raw }}</td><td class="p-2 tabular font-bold" data-pct>—</td><td class="p-2"><span data-pill class="font-label-sm text-label-sm font-bold">{{ info.status }}</span></td></tr>
+        <tr class="subj border-t-2 border-pure-black" data-raw="{{ info.raw }}"><td class="p-2 font-bold">{{ display_names.get(subject, subject) }}<div class="font-label-sm text-label-sm text-on-surface-variant">{{ subject }}</div></td><td class="p-2 tabular">{{ info.raw }}</td><td class="p-2 tabular font-bold" data-pct>—</td><td class="p-2"><span data-pill class="font-label-sm text-label-sm font-bold">{{ info.status }}</span></td><td class="p-2">{% if subject_map.get(subject) %}<form method="POST" action="/remove_mapping/{{ subject }}"><button type="submit" class="font-label-sm text-label-sm font-bold text-error border border-error px-1 hover:bg-error hover:text-stark-white transition-colors">✕</button></form>{% endif %}</td></tr>
         {% endif %}
         {% endfor %}
         </tbody>
       </table>
     </div>
     {% if subject_map %}
-    <details class="mt-4"><summary class="cursor-pointer font-label-md text-label-md font-bold uppercase">Auto mappings ({{ subject_map|length }})</summary>
-      <ul class="mt-2 font-body-sm text-body-sm">{% for header, m in subject_map.items() %}<li>{{ header }} → <strong>{{ m.key }}</strong> ({{ m.method }})</li>{% endfor %}</ul>
+    <details class="mt-4"><summary class="cursor-pointer font-label-md text-label-md font-bold uppercase">Active mappings ({{ subject_map|length }}) — click to manage</summary>
+      <ul class="mt-2 font-body-sm text-body-sm space-y-1">
+        {% for header, m in subject_map.items() %}
+        <li class="flex items-center gap-3 py-1 border-b border-surface-dim">
+          <span class="font-mono font-bold">{{ header }}</span>
+          <span class="text-on-surface-variant">→</span>
+          <span class="font-bold">{{ m.key }}</span>
+          <span class="text-on-surface-variant text-xs">({{ m.method }})</span>
+          <form method="POST" action="/remove_mapping/{{ header }}" class="ml-auto">
+            <button type="submit" class="font-label-sm text-label-sm font-bold text-error border border-error px-2 py-0.5 hover:bg-error hover:text-stark-white transition-colors">✕ REMOVE</button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
     </details>
     {% endif %}
   </div>

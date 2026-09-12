@@ -1,2 +1,6 @@
 __pycache__/
 *.pyc
+bunkmaster.db
+sessions/
+*.md
+
